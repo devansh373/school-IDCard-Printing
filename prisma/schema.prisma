@@ -21,6 +21,8 @@ model School {
 
   classes Class[]
   students Student[]
+
+  users User[]
 }
 
 model Class {
@@ -57,4 +59,22 @@ model Student {
 
   photoUrl    String?
   printStatus String  @default("PENDING")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+
+  schoolId Int?
+  school   School? @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
 }
