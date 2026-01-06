@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { createSchool, getSchools } from "../controllers/school.controllers.js";
-import { authenticate } from "../middleware/authenticate.middleware.js";
-import { authorizeRoles } from "../middleware/authorize.middleware.js";
+import { authenticate } from "../middlewares/authenticate.middleware.js";
+import { authorizeRoles } from "../middlewares/authorize.middleware.js";
 
 const router = Router();
 
