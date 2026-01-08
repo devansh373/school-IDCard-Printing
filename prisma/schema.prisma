@@ -43,6 +43,17 @@ model Section {
 
   students Student[]
 }
+enum PhotoStatus {
+  NOT_UPLOADED
+  UPLOADED
+}
+
+enum PrintStatus {
+  PENDING
+  READY
+  PRINTED
+  DELIVERED
+}
 
 model Student {
   id               Int     @id @default(autoincrement())
@@ -57,9 +68,28 @@ model Student {
   class    Class   @relation(fields: [classId], references: [id])
   section  Section @relation(fields: [sectionId], references: [id])
 
-  photoUrl    String?
-  printStatus String  @default("PENDING")
+  photoUrl     String?
+  photoStatus  PhotoStatus @default(NOT_UPLOADED)
+
+  printStatus  PrintStatus @default(PENDING)
 }
+
+// model Student {
+//   id               Int     @id @default(autoincrement())
+//   enrollmentNumber String  @unique
+//   name             String
+
+//   schoolId  Int
+//   classId   Int
+//   sectionId Int
+
+//   school   School  @relation(fields: [schoolId], references: [id])
+//   class    Class   @relation(fields: [classId], references: [id])
+//   section  Section @relation(fields: [sectionId], references: [id])
+
+//   photoUrl    String?
+//   printStatus String  @default("PENDING")
+// }
 
 enum UserRole {
   SUPER_ADMIN
