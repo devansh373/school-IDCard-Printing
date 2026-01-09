@@ -180,3 +180,24 @@ POST   /print/bulk
 
 This backend system enables a **single 3rd-party vendor** to fully manage school ID card printing responsibilities.  
 Using **PostgreSQL with Prisma** ensures strong data integrity, safe bulk imports, and long-term scalability while keeping development simple and maintainable.
+
+
+
+Authentication Roles-
+1 super admin
+2 school admin
+3 vendor
+
+super admin- all permissions
+login super admin-> 1 dashboard:-
+stats-
+ - total schools
+ - active vendors
+ - storage used
+ - system status
+Management-
+ - manage schools
+ - manage vendors
+Recently Joined Schools
+Manage schools-
+add new school-> details -> password will be sent to the mail provided

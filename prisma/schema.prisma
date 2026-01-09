@@ -11,38 +11,39 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 model School {
-  id     Int     @id @default(autoincrement())
-  name   String
-  code   String  @unique
+  id   Int    @id @default(autoincrement())
+  name String
+  code String @unique
 
-  classes Class[]
+  classes  Class[]
   students Student[]
 
-  users User[]
+  users     User[]
+  createdAt DateTime @default(now())
 }
 
 model Class {
-  id        Int     @id @default(autoincrement())
-  name      String
-  schoolId  Int
-  school    School  @relation(fields: [schoolId], references: [id])
+  id       Int    @id @default(autoincrement())
+  name     String
+  schoolId Int
+  school   School @relation(fields: [schoolId], references: [id])
 
-  sections  Section[]
-  students  Student[]
+  sections Section[]
+  students Student[]
 }
 
 model Section {
-  id       Int     @id @default(autoincrement())
-  name     String
-  classId  Int
-  class    Class   @relation(fields: [classId], references: [id])
+  id      Int    @id @default(autoincrement())
+  name    String
+  classId Int
+  class   Class  @relation(fields: [classId], references: [id])
 
   students Student[]
 }
+
 enum PhotoStatus {
   NOT_UPLOADED
   UPLOADED
@@ -56,22 +57,22 @@ enum PrintStatus {
 }
 
 model Student {
-  id               Int     @id @default(autoincrement())
-  enrollmentNumber String  @unique
+  id               Int    @id @default(autoincrement())
+  enrollmentNumber String @unique
   name             String
 
   schoolId  Int
   classId   Int
   sectionId Int
 
-  school   School  @relation(fields: [schoolId], references: [id])
-  class    Class   @relation(fields: [classId], references: [id])
-  section  Section @relation(fields: [sectionId], references: [id])
+  school  School  @relation(fields: [schoolId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  section Section @relation(fields: [sectionId], references: [id])
 
-  photoUrl     String?
-  photoStatus  PhotoStatus @default(NOT_UPLOADED)
+  photoUrl    String?
+  photoStatus PhotoStatus @default(NOT_UPLOADED)
 
-  printStatus  PrintStatus @default(PENDING)
+  printStatus PrintStatus @default(PENDING)
 }
 
 // model Student {
@@ -94,7 +95,13 @@ model Student {
 enum UserRole {
   SUPER_ADMIN
   SCHOOL_ADMIN
-  TEACHER
+  VENDOR
+}
+
+enum VendorStatus {
+  ONBOARDING
+  ACTIVE
+  INACTIVE
 }
 
 model User {
@@ -103,8 +110,30 @@ model User {
   passwordHash String
   role         UserRole
 
+  // School relation (only for school users)
   schoolId Int?
   school   School? @relation(fields: [schoolId], references: [id])
 
+  // Vendor-specific fields
+  vendorName   String?
+  phoneNumber  String?
+  location     String?
+  vendorStatus VendorStatus?
+
+  isActive Boolean @default(true)
+
   createdAt DateTime @default(now())
 }
+
+// model User {
+//   id           Int      @id @default(autoincrement())
+//   email        String   @unique
+//   passwordHash String
+//   role         UserRole
+
+//   schoolId Int?
+//   school   School? @relation(fields: [schoolId], references: [id])
+//   isActive Boolean @default(true)
+
+//   createdAt DateTime @default(now())
+// }
