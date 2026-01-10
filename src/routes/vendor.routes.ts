@@ -1,18 +1,15 @@
 import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
-
-import { superAdminDashboard } from "../controllers/dashboard.controller.js";
+import { registerVendor } from "../controllers/vendor.controller.js";
 import { authorizeRoles } from "../middlewares/authorize.middleware.js";
-import { blockIfPasswordChangeRequired } from "../middlewares/blockIfPasswordNotChanges.js";
 
 const router = Router();
 
-router.get(
-  "/super-admin",
+router.post(
+  "/register",
   authenticate,
-  blockIfPasswordChangeRequired,
   authorizeRoles("SUPER_ADMIN"),
-  superAdminDashboard
+  registerVendor
 );
 
 export default router;

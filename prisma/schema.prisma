@@ -96,6 +96,7 @@ enum UserRole {
   SUPER_ADMIN
   SCHOOL_ADMIN
   VENDOR
+  TEACHER
 }
 
 enum VendorStatus {
@@ -119,6 +120,8 @@ model User {
   phoneNumber  String?
   location     String?
   vendorStatus VendorStatus?
+
+  mustChangePassword Boolean @default(true)
 
   isActive Boolean @default(true)
 

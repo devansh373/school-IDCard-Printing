@@ -95,13 +95,11 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {prisma} from "../db.js";
+import type { User } from "../generated/prisma/client.js";
 
 interface ImportArgs {
   file: Express.Multer.File;
-  user: {
-    role: string;
-    schoolId?: number;
-  };
+  user: User
   schoolCode?: string;
 }
 
@@ -121,6 +119,9 @@ export const processStudentImport = async ({
   let schoolId: number;
 
   if (user.role === "SCHOOL_ADMIN") {
+     if (!user.schoolId) {
+    throw new Error("School admin is not linked to any school");
+  }
     schoolId = user.schoolId!;
   } else {
     if (!schoolCode) {
