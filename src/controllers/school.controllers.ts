@@ -50,17 +50,95 @@ import bcrypt from "bcrypt";
 
 import { generateTempPassword } from "../utils/password.js";
 import { sendSchoolAdminCredentials } from "../utils/mailer.js";
-import type { Prisma } from "../generated/prisma/client.js";
+import type { Prisma, School } from "../generated/prisma/client.js";
+
+// export const registerSchoolWithAdmin = async (
+//   req: AuthRequest,
+//   res: Response
+// ) => {
+//   const { name, code, adminEmail } = req.body as {
+//     name?: string;
+//     code?: string;
+//     adminEmail?: string;
+//   };
+
+//   if (!name || !code || !adminEmail) {
+//     return res.status(400).json({
+//       message: "name, code and adminEmail are required",
+//     });
+//   }
+
+//   // RBAC
+//   if (req.user?.role !== "SUPER_ADMIN") {
+//     return res.status(403).json({ message: "Forbidden" });
+//   }
+
+//   try {
+//     // Check duplicates early
+//     const existingSchool = await prisma.school.findUnique({
+//       where: { code },
+//       select: { id: true },
+//     });
+//     if (existingSchool) {
+//       return res.status(409).json({ message: "School code already exists" });
+//     }
+
+//     const existingUser = await prisma.user.findUnique({
+//       where: { email: adminEmail },
+//       select: { id: true },
+//     });
+//     if (existingUser) {
+//       return res.status(409).json({ message: "Admin email already exists" });
+//     }
+
+//     // Transaction keeps data consistent
+//     const result = await prisma.$transaction(async (tx:Prisma.TransactionClient) => {
+//       const school = await tx.school.create({
+//         data: { name, code },
+//       });
+
+//       const tempPassword = generateTempPassword(10);
+//       const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+//       await tx.user.create({
+//         data: {
+//           email: adminEmail,
+//           passwordHash,
+//           role: "SCHOOL_ADMIN",
+//           schoolId: school.id,
+//         },
+//       });
+
+//       // Send email AFTER DB success
+//       await sendSchoolAdminCredentials({
+//         to: adminEmail,
+//         schoolCode: code,
+//         password: tempPassword,
+//       });
+
+//       return school;
+//     });
+
+//     return res.status(201).json({
+//       message: "School created and admin credentials sent via email",
+//       schoolId: result.id,
+//     });
+//   } catch (error: any) {
+//     // Prisma unique constraint
+//     if (error.code === "P2002") {
+//       return res.status(409).json({ message: "Duplicate entry detected" });
+//     }
+//     return res.status(500).json({
+//       message: "Failed to register school",
+//     });
+//   }
+// };
 
 export const registerSchoolWithAdmin = async (
   req: AuthRequest,
   res: Response
 ) => {
-  const { name, code, adminEmail } = req.body as {
-    name?: string;
-    code?: string;
-    adminEmail?: string;
-  };
+  const { name, code, adminEmail } = req.body;
 
   if (!name || !code || !adminEmail) {
     return res.status(400).json({
@@ -68,13 +146,11 @@ export const registerSchoolWithAdmin = async (
     });
   }
 
-  // RBAC
   if (req.user?.role !== "SUPER_ADMIN") {
     return res.status(403).json({ message: "Forbidden" });
   }
 
   try {
-    // Check duplicates early
     const existingSchool = await prisma.school.findUnique({
       where: { code },
       select: { id: true },
@@ -91,8 +167,7 @@ export const registerSchoolWithAdmin = async (
       return res.status(409).json({ message: "Admin email already exists" });
     }
 
-    // Transaction keeps data consistent
-    const result = await prisma.$transaction(async (tx:Prisma.TransactionClient) => {
+    const { school, tempPassword } = await prisma.$transaction(async (tx:Prisma.TransactionClient): Promise<{ school: School; tempPassword: string }> => {
       const school = await tx.school.create({
         data: { name, code },
       });
@@ -109,27 +184,24 @@ export const registerSchoolWithAdmin = async (
         },
       });
 
-      // Send email AFTER DB success
-      await sendSchoolAdminCredentials({
-        to: adminEmail,
-        schoolCode: code,
-        password: tempPassword,
-      });
-
-      return school;
+      return { school, tempPassword };
     });
+
+    // ✅ Email outside transaction
+    sendSchoolAdminCredentials({
+      to: adminEmail,
+      schoolCode: code,
+      password: tempPassword,
+    }).catch(console.error);
 
     return res.status(201).json({
-      message: "School created and admin credentials sent via email",
-      schoolId: result.id,
+      message: "School created and admin email queued",
+      schoolId: school.id,
     });
   } catch (error: any) {
-    // Prisma unique constraint
-    if (error.code === "P2002") {
-      return res.status(409).json({ message: "Duplicate entry detected" });
-    }
+    console.error("REGISTER SCHOOL ERROR:", error);
     return res.status(500).json({
-      message: "Failed to register school",
+      message: error.message || "Failed to register school",
     });
   }
 };
