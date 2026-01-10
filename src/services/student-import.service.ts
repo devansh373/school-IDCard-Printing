@@ -95,7 +95,7 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {prisma} from "../db.js";
-import type { User } from "../generated/prisma/client.js";
+import type { Prisma, User } from "../generated/prisma/client.js";
 
 interface ImportArgs {
   file: Express.Multer.File;
@@ -146,7 +146,9 @@ export const processStudentImport = async ({
   const classes = await prisma.class.findMany({
     where: { schoolId },
     include: { sections: true },
-  });
+  }) satisfies Prisma.ClassGetPayload<{
+  include: { sections: true };
+}>[];
 
   const classMap = new Map(
     classes.map((cls) => [cls.name, cls])
@@ -171,7 +173,7 @@ export const processStudentImport = async ({
       if (!cls) throw new Error(`Class '${row.class}' not found`);
 
       const section = cls.sections.find(
-        (s) => s.name === row.section
+        (s:{ id: number; name: string }) => s.name === row.section
       );
       if (!section)
         throw new Error(

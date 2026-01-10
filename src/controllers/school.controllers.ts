@@ -50,6 +50,7 @@ import bcrypt from "bcrypt";
 
 import { generateTempPassword } from "../utils/password.js";
 import { sendSchoolAdminCredentials } from "../utils/mailer.js";
+import type { Prisma } from "../generated/prisma/client.js";
 
 export const registerSchoolWithAdmin = async (
   req: AuthRequest,
@@ -91,7 +92,7 @@ export const registerSchoolWithAdmin = async (
     }
 
     // Transaction keeps data consistent
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx:Prisma.TransactionClient) => {
       const school = await tx.school.create({
         data: { name, code },
       });
