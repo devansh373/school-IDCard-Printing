@@ -26,7 +26,7 @@ router.get(
 router.post(
   "/import",
   authenticate,
-  authorizeRoles("SUPER_ADMIN", "SCHOOL_ADMIN"),
+//   authorizeRoles("SUPER_ADMIN", "SCHOOL_ADMIN"),
   upload.single("file"),
   importStudents
 );

@@ -61,6 +61,10 @@ model Student {
   enrollmentNumber String @unique
   name             String
 
+ fatherName  String?
+  phoneNumber String?
+  email       String?
+  
   schoolId  Int
   classId   Int
   sectionId Int
