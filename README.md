@@ -183,7 +183,7 @@ Using **PostgreSQL with Prisma** ensures strong data integrity, safe bulk import
 
 
 
-Authentication Roles-
+<!-- Authentication Roles-
 1 super admin
 2 school admin
 3 vendor
@@ -200,4 +200,20 @@ Management-
  - manage vendors
 Recently Joined Schools
 Manage schools-
-add new school-> details -> password will be sent to the mail provided
+add new school-> details -> password will be sent to the mail provided -->
+
+
+## 🐳 Run Backend with Docker (Recommended)
+
+This backend is fully dockerized using **Docker + Docker Compose**.
+It runs Node.js, Prisma, and PostgreSQL in containers with zero local setup.
+
+### Prerequisites
+- Docker Desktop (Windows / Mac / Linux)
+
+---
+
+### 🚀 Start the backend
+
+```bash
+docker compose up --build
