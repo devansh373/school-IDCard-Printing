@@ -54,6 +54,7 @@ export const getSchools = async (_req: Request, res: Response) => {
     code: school.code,
     adminEmail: school.users[0]?.email || null,
     imagekitPublicKey: school.imagekitPublicKey,
+    imagekitPrivateKey: school.imagekitPrivateKey, 
     imagekitUrlEndpoint: school.imagekitUrlEndpoint,
     imagekitFolder: school.imagekitFolder,
     createdAt: school.createdAt,
@@ -119,6 +120,7 @@ import bcrypt from "bcrypt";
 import { generateTempPassword } from "../utils/password.js";
 import { sendSchoolAdminCredentials } from "../utils/mailer.js";
 import type { Prisma, School } from "../generated/prisma/client.js";
+import { imagekit } from "../config/imagekit.js";
 
 // export const registerSchoolWithAdmin = async (
 //   req: AuthRequest,
