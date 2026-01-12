@@ -53,6 +53,7 @@ model Section {
 enum PhotoStatus {
   NOT_UPLOADED
   UPLOADED
+  APPROVED
 }
 
 enum PrintStatus {
