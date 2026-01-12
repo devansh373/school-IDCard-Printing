@@ -426,65 +426,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
   }
 };
 
-/**
- * Admin (SUPER_ADMIN) get all vendors with optional filters
- */
-export const getAllVendors = async (req: AuthRequest, res: Response) => {
-  const actor = req.user;
-  if (!actor) return res.status(401).json({ message: "Unauthorized" });
 
-  if (actor.role !== UserRole.SUPER_ADMIN) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
-  const { vendorStatus, isActive, search } = req.query as Record<string, string>;
-
-  try {
-    const where: any = {
-      role: UserRole.VENDOR,
-    };
-
-    if (vendorStatus) {
-      if (!Object.values(VendorStatus).includes(vendorStatus as any)) {
-        return res.status(400).json({ message: `Invalid vendorStatus: ${vendorStatus}` });
-      }
-      where.vendorStatus = vendorStatus;
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive === "true";
-    }
-
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: "insensitive" } },
-        { vendorName: { contains: search, mode: "insensitive" } },
-      ];
-    }
-
-    const vendors = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        vendorName: true,
-        phoneNumber: true,
-        location: true,
-        vendorStatus: true,
-        isActive: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return res.json({
-      total: vendors.length,
-      vendors,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: "Failed to fetch vendors" });
-  }
-};
 
 /**
  * Admin (SUPER_ADMIN) get all school admins with their schools

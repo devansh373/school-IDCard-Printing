@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { changePassword, login, logout, getProfile, updateProfile, adminUpdateUser, getUser, getAllUsers, getAllVendors, getAllSchoolAdmins } from "../controllers/auth.controller.js";
+import { changePassword, login, logout, getProfile, updateProfile, adminUpdateUser, getUser, getAllUsers, getAllSchoolAdmins } from "../controllers/auth.controller.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
 import { authorizeRoles } from "../middlewares/authorize.middleware.js";
 
@@ -46,12 +46,7 @@ router.get(
   getAllUsers
 );
 
-router.get(
-  "/vendors",
-  authenticate,
-  authorizeRoles("SUPER_ADMIN"),
-  getAllVendors
-);
+
 
 router.get(
   "/school-admins",
