@@ -53,6 +53,9 @@ export const getSchools = async (_req: Request, res: Response) => {
     name: school.name,
     code: school.code,
     adminEmail: school.users[0]?.email || null,
+    imagekitPublicKey: school.imagekitPublicKey,
+    imagekitUrlEndpoint: school.imagekitUrlEndpoint,
+    imagekitFolder: school.imagekitFolder,
     createdAt: school.createdAt,
   }));
 

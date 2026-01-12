@@ -470,7 +470,7 @@ router.get(
 - **Endpoint:** `GET /schools/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
-- **Description:** Retrieve all schools with their admin email
+- **Description:** Retrieve all schools with their admin email and ImageKit configuration
 - **Query Parameters:** None
 - **Response (Success):**
   ```json
@@ -480,6 +480,9 @@ router.get(
       "name": "ABC School",
       "code": "ABC001",
       "adminEmail": "admin@abcschool.com",
+      "imagekitPublicKey": "public_xTYabJQlSXddkvABKRZexz03xTU=",
+      "imagekitUrlEndpoint": "https://ik.imagekit.io/avvowijga",
+      "imagekitFolder": "schools/1",
       "createdAt": "2026-01-10T12:00:00Z"
     },
     {
@@ -487,6 +490,9 @@ router.get(
       "name": "XYZ School",
       "code": "XYZ001",
       "adminEmail": "admin@xyzschool.com",
+      "imagekitPublicKey": "public_aBcDefGhIjKlMnOpQrStUvWxYz=",
+      "imagekitUrlEndpoint": "https://ik.imagekit.io/xyzschool",
+      "imagekitFolder": "schools/2",
       "createdAt": "2026-01-11T12:00:00Z"
     }
   ]
