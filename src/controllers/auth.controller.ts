@@ -346,3 +346,210 @@ export const getUser = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ message: "Failed to fetch user" });
   }
 };
+
+/**
+ * Admin (SUPER_ADMIN) get all users with optional filters
+ */
+export const getAllUsers = async (req: AuthRequest, res: Response) => {
+  const actor = req.user;
+  if (!actor) return res.status(401).json({ message: "Unauthorized" });
+
+  if (actor.role !== UserRole.SUPER_ADMIN) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const { role, schoolId, isActive, search } = req.query as Record<string, string>;
+
+  try {
+    const where: any = {};
+
+    if (role) {
+      if (!Object.values(UserRole).includes(role as any)) {
+        return res.status(400).json({ message: `Invalid role: ${role}` });
+      }
+      where.role = role;
+    }
+
+    if (schoolId) {
+      where.schoolId = Number(schoolId);
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive === "true";
+    }
+
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: "insensitive" } },
+        { vendorName: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        vendorName: true,
+        phoneNumber: true,
+        location: true,
+        vendorStatus: true,
+        schoolId: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Enrich with school info for school-scoped users
+    const usersWithSchool = await Promise.all(
+      users.map(async (user) => {
+        if (user.schoolId) {
+          const school = await prisma.school.findUnique({
+            where: { id: user.schoolId },
+            select: { id: true, name: true, code: true },
+          });
+          return { ...user, school };
+        }
+        return user;
+      })
+    );
+
+    return res.json({
+      total: usersWithSchool.length,
+      users: usersWithSchool,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch users" });
+  }
+};
+
+/**
+ * Admin (SUPER_ADMIN) get all vendors with optional filters
+ */
+export const getAllVendors = async (req: AuthRequest, res: Response) => {
+  const actor = req.user;
+  if (!actor) return res.status(401).json({ message: "Unauthorized" });
+
+  if (actor.role !== UserRole.SUPER_ADMIN) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const { vendorStatus, isActive, search } = req.query as Record<string, string>;
+
+  try {
+    const where: any = {
+      role: UserRole.VENDOR,
+    };
+
+    if (vendorStatus) {
+      if (!Object.values(VendorStatus).includes(vendorStatus as any)) {
+        return res.status(400).json({ message: `Invalid vendorStatus: ${vendorStatus}` });
+      }
+      where.vendorStatus = vendorStatus;
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive === "true";
+    }
+
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: "insensitive" } },
+        { vendorName: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const vendors = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        vendorName: true,
+        phoneNumber: true,
+        location: true,
+        vendorStatus: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.json({
+      total: vendors.length,
+      vendors,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch vendors" });
+  }
+};
+
+/**
+ * Admin (SUPER_ADMIN) get all school admins with their schools
+ */
+export const getAllSchoolAdmins = async (req: AuthRequest, res: Response) => {
+  const actor = req.user;
+  if (!actor) return res.status(401).json({ message: "Unauthorized" });
+
+  if (actor.role !== UserRole.SUPER_ADMIN) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const { schoolId, isActive, search } = req.query as Record<string, string>;
+
+  try {
+    const where: any = {
+      role: UserRole.SCHOOL_ADMIN,
+    };
+
+    if (schoolId) {
+      where.schoolId = Number(schoolId);
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive === "true";
+    }
+
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const admins = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        schoolId: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Enrich with school details
+    const adminsWithSchool = await Promise.all(
+      admins.map(async (admin) => {
+        if (admin.schoolId) {
+          const school = await prisma.school.findUnique({
+            where: { id: admin.schoolId },
+            select: { id: true, name: true, code: true },
+          });
+          return { ...admin, school };
+        }
+        return admin;
+      })
+    );
+
+    return res.json({
+      total: adminsWithSchool.length,
+      admins: adminsWithSchool,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch school admins" });
+  }
+};

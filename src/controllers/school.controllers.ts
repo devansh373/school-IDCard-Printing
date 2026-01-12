@@ -38,9 +38,74 @@ import {prisma} from "../db.js";
 export const getSchools = async (_req: Request, res: Response) => {
   const schools = await prisma.school.findMany({
     orderBy: { id: "asc" },
+    include: {
+      users: {
+        where: { role: "SCHOOL_ADMIN" },
+        select: { email: true },
+        take: 1,
+      },
+    },
   });
 
-  return res.json(schools);
+  // Transform to flatten adminEmail
+  const enrichedSchools = schools.map((school) => ({
+    id: school.id,
+    name: school.name,
+    code: school.code,
+    adminEmail: school.users[0]?.email || null,
+    createdAt: school.createdAt,
+  }));
+
+  return res.json(enrichedSchools);
+};
+
+/**
+ * Get school by ID
+ */
+export const getSchoolById = async (req: AuthRequest, res: Response) => {
+  const { schoolId } = req.params;
+
+  // Validate schoolId is a number
+  if (!schoolId || isNaN(Number(schoolId))) {
+    return res.status(400).json({ message: "Valid schoolId is required" });
+  }
+
+  try {
+    const school = await prisma.school.findUnique({
+      where: { id: Number(schoolId) },
+      include: {
+        users: {
+          where: { role: "SCHOOL_ADMIN" },
+          select: { email: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    // Transform to flatten adminEmail
+    const enrichedSchool = {
+      id: school.id,
+      name: school.name,
+      code: school.code,
+      adminEmail: school.users[0]?.email || null,
+      imagekitPublicKey: school.imagekitPublicKey,
+      imagekitUrlEndpoint: school.imagekitUrlEndpoint,
+      imagekitFolder: school.imagekitFolder,
+      // 🔐 Never expose private key
+      createdAt: school.createdAt,
+    };
+
+    return res.json(enrichedSchool);
+  } catch (error: any) {
+    console.error("GET SCHOOL ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to fetch school",
+    });
+  }
 };
 
 // register school
@@ -303,6 +368,90 @@ export const registerSchoolWithAdmin = async (
     console.error("REGISTER SCHOOL ERROR:", error);
     return res.status(500).json({
       message: error.message || "Failed to register school",
+    });
+  }
+};
+
+/**
+ * Update ImageKit credentials for a school
+ */
+export const updateImagekitCredentials = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const { schoolId } = req.params;
+  const {
+    imagekitPublicKey,
+    imagekitPrivateKey,
+    imagekitUrlEndpoint,
+    imagekitFolder,
+  } = req.body;
+
+  // 🔐 RBAC: Only SUPER_ADMIN can update credentials
+  if (req.user?.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  // Validate school exists
+  if (!schoolId || isNaN(Number(schoolId))) {
+    return res.status(400).json({ message: "Valid schoolId is required" });
+  }
+
+  // At least one field required for update
+  if (
+    !imagekitPublicKey &&
+    !imagekitPrivateKey &&
+    !imagekitUrlEndpoint &&
+    imagekitFolder === undefined
+  ) {
+    return res.status(400).json({
+      message:
+        "At least one of imagekitPublicKey, imagekitPrivateKey, imagekitUrlEndpoint, or imagekitFolder is required",
+    });
+  }
+
+  try {
+    // Verify school exists
+    const school = await prisma.school.findUnique({
+      where: { id: Number(schoolId) },
+      select: { id: true },
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    // Build update data (only include provided fields)
+    const updateData: any = {};
+    if (imagekitPublicKey) updateData.imagekitPublicKey = imagekitPublicKey;
+    if (imagekitPrivateKey) updateData.imagekitPrivateKey = imagekitPrivateKey;
+    if (imagekitUrlEndpoint) updateData.imagekitUrlEndpoint = imagekitUrlEndpoint;
+    if (imagekitFolder !== undefined)
+      updateData.imagekitFolder = imagekitFolder || null;
+
+    // Update school
+    const updatedSchool = await prisma.school.update({
+      where: { id: Number(schoolId) },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        imagekitPublicKey: true,
+        imagekitUrlEndpoint: true,
+        imagekitFolder: true,
+        // 🔐 Never expose private key in response
+      },
+    });
+
+    return res.json({
+      message: "ImageKit credentials updated successfully",
+      school: updatedSchool,
+    });
+  } catch (error: any) {
+    console.error("UPDATE IMAGEKIT ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to update ImageKit credentials",
     });
   }
 };
