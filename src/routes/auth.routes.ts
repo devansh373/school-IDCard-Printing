@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { changePassword, login, logout } from "../controllers/auth.controller.js";
+import { changePassword, login, logout, getProfile, updateProfile, adminUpdateUser, getUser } from "../controllers/auth.controller.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
+import { authorizeRoles } from "../middlewares/authorize.middleware.js";
 
 const router = Router();
 
@@ -10,6 +11,32 @@ router.post(
   "/change-password",
   authenticate,
   changePassword
+);
+
+router.get(
+  "/profile",
+  authenticate,
+  getProfile
+);
+
+router.put(
+  "/profile",
+  authenticate,
+  updateProfile
+);
+
+router.put(
+  "/users/:id",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN"),
+  adminUpdateUser
+);
+
+router.get(
+  "/users/:id",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN"),
+  getUser
 );
 
 export default router;

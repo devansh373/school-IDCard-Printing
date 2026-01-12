@@ -39,6 +39,7 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
   const classes = await prisma.class.findMany({
     where,
     include: { sections: true },
+    orderBy:{name:"asc"}
   });
 
   return res.json(classes);

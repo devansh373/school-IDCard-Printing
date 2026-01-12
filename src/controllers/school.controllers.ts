@@ -4,33 +4,33 @@ import {prisma} from "../db.js";
 /**
  * Create a school
  */
-export const createSchool = async (req: Request, res: Response) => {
-  const { name, code } = req.body;
+// export const createSchool = async (req: Request, res: Response) => {
+//   const { name, code } = req.body;
 
-  if (!name || !code) {
-    return res.status(400).json({
-      message: "School name and code are required",
-    });
-  }
+//   if (!name || !code) {
+//     return res.status(400).json({
+//       message: "School name and code are required",
+//     });
+//   }
 
-  try {
-    const school = await prisma.school.create({
-      data: { name, code },
-    });
+//   try {
+//     const school = await prisma.school.create({
+//       data: { name, code },
+//     });
 
-    return res.status(201).json(school);
-  } catch (error: any) {
-    if (error.code === "P2002") {
-      return res.status(409).json({
-        message: "School code already exists",
-      });
-    }
+//     return res.status(201).json(school);
+//   } catch (error: any) {
+//     if (error.code === "P2002") {
+//       return res.status(409).json({
+//         message: "School code already exists",
+//       });
+//     }
 
-    return res.status(500).json({
-      message: "Failed to create school"+error.message,
-    });
-  }
-};
+//     return res.status(500).json({
+//       message: "Failed to create school"+error.message,
+//     });
+//   }
+// };
 
 /**
  * Get all schools
@@ -134,23 +134,114 @@ import type { Prisma, School } from "../generated/prisma/client.js";
 //   }
 // };
 
+// export const registerSchoolWithAdmin = async (
+//   req: AuthRequest,
+//   res: Response
+// ) => {
+//   const { name, code, adminEmail } = req.body;
+
+//   if (!name || !code || !adminEmail) {
+//     return res.status(400).json({
+//       message: "name, code and adminEmail are required",
+//     });
+//   }
+
+//   if (req.user?.role !== "SUPER_ADMIN") {
+//     return res.status(403).json({ message: "Forbidden" });
+//   }
+
+//   try {
+//     const existingSchool = await prisma.school.findUnique({
+//       where: { code },
+//       select: { id: true },
+//     });
+//     if (existingSchool) {
+//       return res.status(409).json({ message: "School code already exists" });
+//     }
+
+//     const existingUser = await prisma.user.findUnique({
+//       where: { email: adminEmail },
+//       select: { id: true },
+//     });
+//     if (existingUser) {
+//       return res.status(409).json({ message: "Admin email already exists" });
+//     }
+
+//     const { school, tempPassword } = await prisma.$transaction(async (tx:Prisma.TransactionClient): Promise<{ school: School; tempPassword: string }> => {
+//       const school = await tx.school.create({
+//         data: { name, code },
+//       });
+
+//       const tempPassword = generateTempPassword(10);
+//       const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+//       await tx.user.create({
+//         data: {
+//           email: adminEmail,
+//           passwordHash,
+//           role: "SCHOOL_ADMIN",
+//           schoolId: school.id,
+//         },
+//       });
+
+//       return { school, tempPassword };
+//     });
+
+//     // ✅ Email outside transaction
+//     sendSchoolAdminCredentials({
+//       to: adminEmail,
+//       schoolCode: code,
+//       password: tempPassword,
+//     }).catch(console.error);
+
+//     return res.status(201).json({
+//       message: "School created and admin email queued",
+//       schoolId: school.id,
+//     });
+//   } catch (error: any) {
+//     console.error("REGISTER SCHOOL ERROR:", error);
+//     return res.status(500).json({
+//       message: error.message || "Failed to register school",
+//     });
+//   }
+// };
+
+
 export const registerSchoolWithAdmin = async (
   req: AuthRequest,
   res: Response
 ) => {
-  const { name, code, adminEmail } = req.body;
+  const {
+    name,
+    code,
+    adminEmail,
+    imagekitPublicKey,
+    imagekitPrivateKey,
+    imagekitUrlEndpoint,
+    imagekitFolder,
+  } = req.body;
 
-  if (!name || !code || !adminEmail) {
+  if (
+    !name ||
+    !code ||
+    !adminEmail ||
+    !imagekitPublicKey ||
+    !imagekitPrivateKey ||
+    !imagekitUrlEndpoint
+  ) {
     return res.status(400).json({
-      message: "name, code and adminEmail are required",
+      message:
+        "name, code, adminEmail, imagekitPublicKey, imagekitPrivateKey and imagekitUrlEndpoint are required",
     });
   }
 
+  // 🔐 RBAC
   if (req.user?.role !== "SUPER_ADMIN") {
     return res.status(403).json({ message: "Forbidden" });
   }
 
   try {
+    // Duplicate school check
     const existingSchool = await prisma.school.findUnique({
       where: { code },
       select: { id: true },
@@ -159,6 +250,7 @@ export const registerSchoolWithAdmin = async (
       return res.status(409).json({ message: "School code already exists" });
     }
 
+    // Duplicate admin check
     const existingUser = await prisma.user.findUnique({
       where: { email: adminEmail },
       select: { id: true },
@@ -167,27 +259,36 @@ export const registerSchoolWithAdmin = async (
       return res.status(409).json({ message: "Admin email already exists" });
     }
 
-    const { school, tempPassword } = await prisma.$transaction(async (tx:Prisma.TransactionClient): Promise<{ school: School; tempPassword: string }> => {
-      const school = await tx.school.create({
-        data: { name, code },
-      });
+    const { school, tempPassword } = await prisma.$transaction(
+      async (tx): Promise<{ school: School; tempPassword: string }> => {
+        const school = await tx.school.create({
+          data: {
+            name,
+            code,
+            imagekitPublicKey,
+            imagekitPrivateKey, // 🔐 stored, never exposed
+            imagekitUrlEndpoint,
+            imagekitFolder: imagekitFolder || null,
+          },
+        });
 
-      const tempPassword = generateTempPassword(10);
-      const passwordHash = await bcrypt.hash(tempPassword, 10);
+        const tempPassword = generateTempPassword(10);
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-      await tx.user.create({
-        data: {
-          email: adminEmail,
-          passwordHash,
-          role: "SCHOOL_ADMIN",
-          schoolId: school.id,
-        },
-      });
+        await tx.user.create({
+          data: {
+            email: adminEmail,
+            passwordHash,
+            role: "SCHOOL_ADMIN",
+            schoolId: school.id,
+          },
+        });
 
-      return { school, tempPassword };
-    });
+        return { school, tempPassword };
+      }
+    );
 
-    // ✅ Email outside transaction
+    // 📧 Email AFTER transaction
     sendSchoolAdminCredentials({
       to: adminEmail,
       schoolCode: code,
@@ -195,7 +296,7 @@ export const registerSchoolWithAdmin = async (
     }).catch(console.error);
 
     return res.status(201).json({
-      message: "School created and admin email queued",
+      message: "School created with ImageKit configuration",
       schoolId: school.id,
     });
   } catch (error: any) {

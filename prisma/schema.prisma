@@ -17,6 +17,12 @@ model School {
   id   Int    @id @default(autoincrement())
   name String
   code String @unique
+ 
+ // 🔐 ImageKit (per school)
+  imagekitPublicKey   String?
+  imagekitPrivateKey  String?
+  imagekitUrlEndpoint String?
+  imagekitFolder      String?
 
   classes  Class[]
   students Student[]
@@ -64,7 +70,7 @@ model Student {
  fatherName  String?
   phoneNumber String?
   email       String?
-  
+
   schoolId  Int
   classId   Int
   sectionId Int

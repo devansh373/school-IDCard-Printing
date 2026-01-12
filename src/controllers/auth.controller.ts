@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../db.js";
 import { JWT_SECRET, JWT_EXPIRES_IN } from "../config/auth.js";
 import type { AuthRequest } from "../middlewares/authenticate.middleware.js";
+import { UserRole, VendorStatus } from "../generated/prisma/enums.js";
 
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -109,4 +110,239 @@ export const changePassword = async (
   });
 
   return res.json({ message: "Password updated successfully" });
+};
+
+/**
+ * Get profile of authenticated user
+ */
+export const getProfile = async (req: AuthRequest, res: Response) => {
+  const user = req.user;
+
+  if (!user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Base profile
+  const profile: Record<string, unknown> = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+  };
+
+  // Include school info for school-scoped users
+  if (user.schoolId) {
+    const school = await prisma.school.findUnique({
+      where: { id: user.schoolId },
+      select: { id: true, name: true, code: true },
+    });
+
+    if (school) profile.school = school;
+  }
+
+  // Include vendor-specific fields for vendors
+  if (user.role === "VENDOR") {
+    profile.vendorName = user.vendorName;
+    profile.phoneNumber = user.phoneNumber;
+    profile.location = user.location;
+    profile.vendorStatus = user.vendorStatus;
+  }
+
+  return res.json({ profile });
+};
+
+/**
+ * Update authenticated user's own profile
+ */
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+  const user = req.user;
+
+  if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+  const { email, vendorName, phoneNumber, location } = req.body as {
+    email?: string;
+    vendorName?: string;
+    phoneNumber?: string;
+    location?: string;
+  };
+
+  if (!email && vendorName === undefined && phoneNumber === undefined && location === undefined) {
+    return res.status(400).json({ message: "At least one field is required to update" });
+  }
+
+  // Email uniqueness check
+  if (email) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing && existing.id !== user.id) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+  }
+
+  const updateData: any = {};
+  if (email !== undefined) updateData.email = email;
+  if (vendorName !== undefined) updateData.vendorName = vendorName;
+  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+  if (location !== undefined) updateData.location = location;
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        vendorName: true,
+        phoneNumber: true,
+        location: true,
+        vendorStatus: true,
+        schoolId: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({ message: "Profile updated", user: updated });
+  } catch (err) {
+    return res.status(500).json({ message: "Failed to update profile" });
+  }
+};
+
+/**
+ * Admin (SUPER_ADMIN) update user by id
+ */
+export const adminUpdateUser = async (req: AuthRequest, res: Response) => {
+  const actor = req.user;
+  if (!actor) return res.status(401).json({ message: "Unauthorized" });
+
+  const targetId = Number(req.params.id);
+  const {
+    email,
+    role,
+    isActive,
+    vendorName,
+    phoneNumber,
+    location,
+    vendorStatus,
+    schoolId,
+    mustChangePassword,
+  } = req.body as Record<string, any>;
+
+  // Only SUPER_ADMIN should call this route (route will enforce), but keep a safeguard
+  if (actor.role !== UserRole.SUPER_ADMIN) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  if (!email && role === undefined && isActive === undefined && vendorName === undefined && phoneNumber === undefined && location === undefined && vendorStatus === undefined && schoolId === undefined && mustChangePassword === undefined) {
+    return res.status(400).json({ message: "At least one field is required to update" });
+  }
+
+  // Validate role
+  if (role !== undefined && !Object.values(UserRole).includes(role)) {
+    return res.status(400).json({ message: `Invalid role: ${role}` });
+  }
+
+  if (vendorStatus !== undefined && !Object.values(VendorStatus).includes(vendorStatus)) {
+    return res.status(400).json({ message: `Invalid vendorStatus: ${vendorStatus}` });
+  }
+
+  // Email uniqueness
+  if (email) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing && existing.id !== targetId) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+  }
+
+  const updateData: any = {};
+  if (email !== undefined) updateData.email = email;
+  if (role !== undefined) updateData.role = role;
+  if (isActive !== undefined) updateData.isActive = isActive;
+  if (vendorName !== undefined) updateData.vendorName = vendorName;
+  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+  if (location !== undefined) updateData.location = location;
+  if (vendorStatus !== undefined) updateData.vendorStatus = vendorStatus;
+  if (schoolId !== undefined) updateData.schoolId = schoolId;
+  if (mustChangePassword !== undefined) updateData.mustChangePassword = mustChangePassword;
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: targetId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        vendorName: true,
+        phoneNumber: true,
+        location: true,
+        vendorStatus: true,
+        schoolId: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({ message: "User updated", user: updated });
+  } catch (error: any) {
+    if (error.code === "P2025") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.status(500).json({ message: "Failed to update user" });
+  }
+};
+
+/**
+ * Admin (SUPER_ADMIN) get user by id
+ */
+export const getUser = async (req: AuthRequest, res: Response) => {
+  const actor = req.user;
+  if (!actor) return res.status(401).json({ message: "Unauthorized" });
+
+  if (actor.role !== UserRole.SUPER_ADMIN) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const userId = Number(req.params.id);
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        vendorName: true,
+        phoneNumber: true,
+        location: true,
+        vendorStatus: true,
+        schoolId: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Include school info if user is assigned to a school
+    let userWithSchool: any = { ...user };
+    if (user.schoolId) {
+      const school = await prisma.school.findUnique({
+        where: { id: user.schoolId },
+        select: { id: true, name: true, code: true },
+      });
+      if (school) userWithSchool.school = school;
+    }
+
+    return res.json(userWithSchool);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch user" });
+  }
 };

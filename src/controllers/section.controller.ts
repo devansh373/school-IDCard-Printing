@@ -50,6 +50,7 @@ export const getSections = async (req: AuthRequest, res: Response) => {
 
   const sections = await prisma.section.findMany({
     where,
+    orderBy:{name:"asc"}
   });
 
   return res.json(sections);

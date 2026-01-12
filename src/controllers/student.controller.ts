@@ -2,7 +2,7 @@ import type { Response } from "express";
 import type { AuthRequest } from "../middlewares/authenticate.middleware.js";
 import {prisma} from "../db.js";
 import  { PrintStatus } from "../generated/prisma/enums.js";
-import { imagekit } from "../config/imagekit.js";
+// import { imagekit } from "../config/imagekit.js";
 
 export const getStudents = async (req: AuthRequest, res: Response) => {
   const {
@@ -122,8 +122,54 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
 };
 
 
+// export const uploadStudentPhoto = async (
+//   req: AuthRequest,
+//   res: Response
+// ) => {
+//   const studentId = Number(req.params.id);
 
+//   if (!req.file) {
+//     return res.status(400).json({ message: "Image file required" });
+//   }
 
+//   const student = await prisma.student.findUnique({
+//     where: { id: studentId },
+//   });
+
+//   if (!student) {
+//     return res.status(404).json({ message: "Student not found" });
+//   }
+
+//   // RBAC: same school
+//   if (
+//     (req.user?.role === "SCHOOL_ADMIN" ||
+//       req.user?.role === "TEACHER") &&
+//     student.schoolId !== req.user.schoolId
+//   ) {
+//     return res.status(403).json({ message: "Forbidden" });
+//   }
+
+//   const uploadResult = await imagekit.upload({
+//     file: req.file.buffer,
+//     fileName: `student_${studentId}.jpg`,
+//     folder: `/students/${student.schoolId}`,
+//   });
+
+//   await prisma.student.update({
+//     where: { id: studentId },
+//     data: {
+//       photoUrl: uploadResult.url,
+//       photoStatus: "UPLOADED",
+//     },
+//   });
+
+//   return res.json({
+//     message: "Photo uploaded successfully",
+//     photoUrl: uploadResult.url,
+//   });
+// };
+
+import ImageKit from "imagekit";
 
 export const uploadStudentPhoto = async (
   req: AuthRequest,
@@ -143,21 +189,58 @@ export const uploadStudentPhoto = async (
     return res.status(404).json({ message: "Student not found" });
   }
 
-  // RBAC: same school
+  // 🔐 RBAC: same school
   if (
-    (req.user?.role === "SCHOOL_ADMIN" ||
-      req.user?.role === "TEACHER") &&
+    req.user?.role === "SCHOOL_ADMIN" &&
     student.schoolId !== req.user.schoolId
   ) {
     return res.status(403).json({ message: "Forbidden" });
   }
 
+  // 🔍 Fetch school ImageKit config
+  const school = await prisma.school.findUnique({
+    where: { id: student.schoolId },
+    select: {
+      imagekitPublicKey: true,
+      imagekitPrivateKey: true,
+      imagekitUrlEndpoint: true,
+      imagekitFolder: true,
+    },
+  });
+
+  // 🚫 Block upload if ImageKit not configured
+  if (
+    !school?.imagekitPublicKey ||
+    !school?.imagekitPrivateKey ||
+    !school?.imagekitUrlEndpoint
+  ) {
+    return res.status(400).json({
+      message:
+        "Image upload is disabled. Please configure ImageKit credentials for this school.",
+    });
+  }
+
+  // ✅ Create ImageKit instance (per school)
+  const imagekit = new ImageKit({
+    publicKey: school.imagekitPublicKey,
+    privateKey: school.imagekitPrivateKey,
+    urlEndpoint: school.imagekitUrlEndpoint,
+  });
+
+  // 📁 Folder structure (clean & isolated)
+  const folder =
+    school.imagekitFolder ??
+    `/schools/${student.schoolId}/students`;
+
+  // 📤 Upload
   const uploadResult = await imagekit.upload({
     file: req.file.buffer,
     fileName: `student_${studentId}.jpg`,
-    folder: `/students/${student.schoolId}`,
+    folder,
+    useUniqueFileName: true,
   });
 
+  // 💾 Save URL in DB
   await prisma.student.update({
     where: { id: studentId },
     data: {
@@ -170,4 +253,166 @@ export const uploadStudentPhoto = async (
     message: "Photo uploaded successfully",
     photoUrl: uploadResult.url,
   });
+};
+
+/**
+ * Update student details
+ * Updatable fields: name, enrollmentNumber, fatherName, phoneNumber, email, classId, sectionId, printStatus, photoStatus
+ */
+export const updateStudent = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const studentId = Number(req.params.id);
+  const {
+    name,
+    enrollmentNumber,
+    fatherName,
+    phoneNumber,
+    email,
+    classId,
+    sectionId,
+    printStatus,
+    photoStatus,
+  } = req.body;
+
+  // Validate at least one field to update
+  if (
+    !name &&
+    !enrollmentNumber &&
+    !fatherName &&
+    !phoneNumber &&
+    !email &&
+    !classId &&
+    !sectionId &&
+    !printStatus &&
+    !photoStatus
+  ) {
+    return res.status(400).json({
+      message:
+        "At least one field (name, enrollmentNumber, fatherName, phoneNumber, email, classId, sectionId, printStatus, photoStatus) is required",
+    });
+  }
+
+  // Find the student
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+  });
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // RBAC isolation - SCHOOL_ADMIN can only update their school's students
+  if (
+    req.user?.role === "SCHOOL_ADMIN" &&
+    student.schoolId !== req.user.schoolId
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  // Validate printStatus if provided
+  if (printStatus && !Object.values(PrintStatus).includes(printStatus as PrintStatus)) {
+    return res.status(400).json({
+      message: `Invalid printStatus: ${printStatus}. Valid values: ${Object.values(PrintStatus).join(", ")}`,
+    });
+  }
+
+  // Validate photoStatus if provided
+  if (photoStatus && !["NOT_UPLOADED", "UPLOADED"].includes(photoStatus)) {
+    return res.status(400).json({
+      message: `Invalid photoStatus: ${photoStatus}. Valid values: NOT_UPLOADED, UPLOADED`,
+    });
+  }
+
+  // Build update data - only include fields that are provided
+  const updateData: any = {};
+  if (name !== undefined) updateData.name = name;
+  if (enrollmentNumber !== undefined) updateData.enrollmentNumber = enrollmentNumber;
+  if (fatherName !== undefined) updateData.fatherName = fatherName;
+  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+  if (email !== undefined) updateData.email = email;
+  if (classId !== undefined) updateData.classId = classId;
+  if (sectionId !== undefined) updateData.sectionId = sectionId;
+  if (printStatus !== undefined) updateData.printStatus = printStatus;
+  if (photoStatus !== undefined) updateData.photoStatus = photoStatus;
+
+  try {
+    const updatedStudent = await prisma.student.update({
+      where: { id: studentId },
+      data: updateData,
+      include: {
+        class: true,
+        section: true,
+        school: true,
+      },
+    });
+
+    return res.status(200).json({
+      message: "Student updated successfully",
+      student: updatedStudent,
+    });
+  } catch (error: any) {
+    // // Unique constraint violation (e.g., enrollmentNumber)
+    // if (error.code === "P2002") {
+    //   return res.status(409).json({
+    //     message: `${error.meta?.target?.[0] || "Field"} already exists`,
+    //   });
+    // }
+    // // Foreign key constraint (e.g., classId or sectionId not found)
+    // if (error.code === "P2025" || error.code === "P2003") {
+    //   return res.status(400).json({
+    //     message: "Class or Section not found",
+    //   });
+    // }
+    return res.status(500).json({
+      message: "Failed to update student",
+    });
+  }
+};
+
+/**
+ * Delete student
+ */
+export const deleteStudent = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const studentId = Number(req.params.id);
+
+  // Find the student
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+  });
+
+  if (!student) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  // RBAC isolation - only SUPER_ADMIN and SCHOOL_ADMIN can delete
+  if (req.user?.role === "TEACHER") {
+    return res.status(403).json({ message: "Teachers cannot delete students" });
+  }
+
+  if (
+    req.user?.role === "SCHOOL_ADMIN" &&
+    student.schoolId !== req.user.schoolId
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  try {
+    await prisma.student.delete({
+      where: { id: studentId },
+    });
+
+    return res.status(200).json({
+      message: "Student deleted successfully",
+      studentId: studentId,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to delete student",
+    });
+  }
 };
