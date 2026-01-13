@@ -950,6 +950,145 @@ router.get(
 
 ---
 
+### 2. Get All Vendors
+- **Endpoint:** `GET /vendors/`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN only
+- **Description:** List all vendors with optional filters.
+- **Query Parameters:**
+  - `vendorStatus` (string): Filter by status (ONBOARDING, ACTIVE, INACTIVE)
+  - `isActive` (boolean): Filter by active status (true/false)
+  - `search` (string): Search by email or vendor name
+- **Example Request:** `GET /vendors/?vendorStatus=ACTIVE&isActive=true`
+- **Response (Success):**
+  ```json
+  {
+    "total": 2,
+    "vendors": [
+      {
+        "id": 5,
+        "email": "vendor@example.com",
+        "vendorName": "ABC Printing Services",
+        "phoneNumber": "+919876543210",
+        "location": "New York",
+        "vendorStatus": "ACTIVE",
+        "isActive": true,
+        "createdAt": "2026-01-10T12:00:00Z"
+      }
+    ]
+  }
+  ```
+- **Response (Failure):**
+  - 400: Invalid vendorStatus
+  - 403: Forbidden (not SUPER_ADMIN)
+  - 500: Failed to fetch vendors
+
+---
+
+### 3. Assign School to Vendor
+- **Endpoint:** `POST /vendors/:vendorId/schools`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN only
+- **Description:** Assign a school to a vendor. The school ID is added to vendor's schoolIds array. Vendor can then access students and print operations for that school.
+- **Path Parameters:** `vendorId` (vendor user ID)
+- **Request Body:**
+  ```json
+  {
+    "schoolId": 1
+  }
+  ```
+- **Response (Success):**
+  ```json
+  {
+    "message": "School assigned to vendor successfully",
+    "vendor": {
+      "id": 5,
+      "email": "vendor@example.com",
+      "vendorName": "ABC Printing Services",
+      "schoolIds": [1, 2]
+    }
+  }
+  ```
+- **Response (Failure):**
+  - 400: Valid vendorId/schoolId required / User is not a vendor
+  - 403: Forbidden (not SUPER_ADMIN)
+  - 404: Vendor not found / School not found
+  - 409: Vendor is already assigned to this school
+  - 500: Failed to assign school
+
+---
+
+### 4. Remove School from Vendor
+- **Endpoint:** `DELETE /vendors/:vendorId/schools/:schoolId`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN only
+- **Description:** Remove a school assignment from a vendor. The school ID is removed from vendor's schoolIds array.
+- **Path Parameters:** 
+  - `vendorId` (vendor user ID)
+  - `schoolId` (school ID)
+- **Response (Success):**
+  ```json
+  {
+    "message": "School removed from vendor successfully",
+    "vendor": {
+      "id": 5,
+      "email": "vendor@example.com",
+      "vendorName": "ABC Printing Services",
+      "schoolIds": [2]
+    }
+  }
+  ```
+- **Response (Failure):**
+  - 400: Valid vendorId/schoolId required
+  - 403: Forbidden (not SUPER_ADMIN)
+  - 404: Vendor is not assigned to this school
+  - 500: Failed to remove school
+
+---
+
+### 5. Get Vendor's Assigned Schools
+- **Endpoint:** `GET /vendors/:vendorId/schools`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN or the vendor themselves
+- **Description:** Retrieve all schools assigned to a vendor. Returns school details with admin email for each assigned school.
+- **Path Parameters:** `vendorId` (vendor user ID)
+- **Response (Success):**
+  ```json
+  {
+    "total": 2,
+    "vendorId": 5,
+    "vendorEmail": "vendor@example.com",
+    "vendorName": "ABC Printing Services",
+    "schools": [
+      {
+        "id": 1,
+        "name": "ABC School",
+        "code": "ABC001",
+        "description": "Optional description",
+        "address": "123 Main St",
+        "contactNumber": "+911234567890",
+        "adminEmail": "admin@abcschool.com"
+      },
+      {
+        "id": 2,
+        "name": "XYZ School",
+        "code": "XYZ001",
+        "description": null,
+        "address": null,
+        "contactNumber": null,
+        "adminEmail": "admin@xyzschool.com"
+      }
+    ]
+  }
+  ```
+- **Response (Failure):**
+  - 400: Valid vendorId required / User is not a vendor
+  - 403: Forbidden (not SUPER_ADMIN and not the vendor)
+  - 404: Vendor not found
+  - 500: Failed to fetch vendor schools
+
+---
+
 ## Dashboard Endpoints (`/api/dashboard`)
 
 ### 1. Super Admin Dashboard

@@ -97,9 +97,10 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
       code: school.code,
       adminEmail: school.users[0]?.email || null,
       imagekitPublicKey: school.imagekitPublicKey,
+      imagekitPrivateKey: school.imagekitPrivateKey,
       imagekitUrlEndpoint: school.imagekitUrlEndpoint,
       imagekitFolder: school.imagekitFolder,
-      // 🔐 Never expose private key
+      
       createdAt: school.createdAt,
     };
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
-import { getAllVendors, registerVendor } from "../controllers/vendor.controller.js";
+import { getAllVendors, registerVendor, assignSchoolToVendor, removeSchoolFromVendor, getVendorSchools } from "../controllers/vendor.controller.js";
 import { authorizeRoles } from "../middlewares/authorize.middleware.js";
 
 const router = Router();
@@ -17,6 +17,26 @@ router.get(
   authenticate,
   authorizeRoles("SUPER_ADMIN"),
   getAllVendors
+);
+
+router.post(
+  "/:vendorId/schools",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN"),
+  assignSchoolToVendor
+);
+
+router.delete(
+  "/:vendorId/schools/:schoolId",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN"),
+  removeSchoolFromVendor
+);
+
+router.get(
+  "/:vendorId/schools",
+  authenticate,
+  getVendorSchools
 );
 
 export default router;

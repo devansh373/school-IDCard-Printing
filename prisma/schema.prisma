@@ -18,7 +18,17 @@ model School {
   name String
   code String @unique
  
- // 🔐 ImageKit (per school)
+  // Optional school profile fields
+  description           String?
+  address               String?
+  contactNumber         String?
+  affiliationNumber     String?
+  registrationNumber    String?
+  registrationDetails   String?
+  authoritySignatureUrl String?
+  principalSignatureUrl String?
+
+  // 🔐 ImageKit (per school)
   imagekitPublicKey   String?
   imagekitPrivateKey  String?
   imagekitUrlEndpoint String?
@@ -26,8 +36,8 @@ model School {
 
   classes  Class[]
   students Student[]
-
   users     User[]
+
   createdAt DateTime @default(now())
 }
 
@@ -131,6 +141,9 @@ model User {
   phoneNumber  String?
   location     String?
   vendorStatus VendorStatus?
+
+  // Schools assigned to vendor (array of school IDs)
+  schoolIds Int[] @default([])
 
   mustChangePassword Boolean @default(true)
 

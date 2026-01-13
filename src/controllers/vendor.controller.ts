@@ -133,3 +133,237 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ message: "Failed to fetch vendors" });
   }
 };
+
+/**
+ * Assign a school to a vendor
+ */
+export const assignSchoolToVendor = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const { vendorId } = req.params;
+  const { schoolId } = req.body as { schoolId?: number };
+
+  // RBAC: Only SUPER_ADMIN can assign schools
+  if (req.user?.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  // Validation
+  if (!vendorId || isNaN(Number(vendorId))) {
+    return res.status(400).json({ message: "Valid vendorId is required" });
+  }
+
+  if (!schoolId || isNaN(Number(schoolId))) {
+    return res.status(400).json({ message: "Valid schoolId is required" });
+  }
+
+  try {
+    // Verify vendor exists and is actually a VENDOR
+    const vendor = await prisma.user.findUnique({
+      where: { id: Number(vendorId) },
+      select: { id: true, role: true, schoolIds: true },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    if (vendor.role !== "VENDOR") {
+      return res.status(400).json({ message: "User is not a vendor" });
+    }
+
+    // Verify school exists
+    const school = await prisma.school.findUnique({
+      where: { id: Number(schoolId) },
+      select: { id: true, name: true, code: true },
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    // Check if school is already assigned
+    if (vendor.schoolIds.includes(Number(schoolId))) {
+      return res.status(409).json({
+        message: "Vendor is already assigned to this school",
+      });
+    }
+
+    // Add school to vendor's schoolIds array
+    const updatedVendor = await prisma.user.update({
+      where: { id: Number(vendorId) },
+      data: {
+        schoolIds: {
+          push: Number(schoolId),
+        },
+      },
+    });
+
+    return res.status(201).json({
+      message: "School assigned to vendor successfully",
+      vendor: {
+        id: updatedVendor.id,
+        email: updatedVendor.email,
+        vendorName: updatedVendor.vendorName,
+        schoolIds: updatedVendor.schoolIds,
+      },
+    });
+  } catch (error: any) {
+    console.error("ASSIGN SCHOOL ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to assign school",
+    });
+  }
+};
+
+/**
+ * Remove a school from a vendor
+ */
+export const removeSchoolFromVendor = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const { vendorId, schoolId } = req.params;
+
+  // RBAC: Only SUPER_ADMIN can remove assignments
+  if (req.user?.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  // Validation
+  if (!vendorId || isNaN(Number(vendorId))) {
+    return res.status(400).json({ message: "Valid vendorId is required" });
+  }
+
+  if (!schoolId || isNaN(Number(schoolId))) {
+    return res.status(400).json({ message: "Valid schoolId is required" });
+  }
+
+  try {
+    const vendor = await prisma.user.findUnique({
+      where: { id: Number(vendorId) },
+      select: { id: true, schoolIds: true },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    // Check if school is assigned
+    if (!vendor.schoolIds.includes(Number(schoolId))) {
+      return res.status(404).json({
+        message: "Vendor is not assigned to this school",
+      });
+    }
+
+    // Remove school from schoolIds array
+    const updatedVendor = await prisma.user.update({
+      where: { id: Number(vendorId) },
+      data: {
+        schoolIds: vendor.schoolIds.filter((id) => id !== Number(schoolId)),
+      },
+    });
+
+    return res.json({
+      message: "School removed from vendor successfully",
+      vendor: {
+        id: updatedVendor.id,
+        email: updatedVendor.email,
+        vendorName: updatedVendor.vendorName,
+        schoolIds: updatedVendor.schoolIds,
+      },
+    });
+  } catch (error: any) {
+    console.error("REMOVE SCHOOL ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to remove school",
+    });
+  }
+};
+
+/**
+ * Get all schools assigned to a vendor
+ */
+export const getVendorSchools = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const { vendorId } = req.params;
+
+  // RBAC: SUPER_ADMIN or the vendor themselves
+  if (
+    req.user?.role !== "SUPER_ADMIN" &&
+    req.user?.id !== Number(vendorId)
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  if (!vendorId || isNaN(Number(vendorId))) {
+    return res.status(400).json({ message: "Valid vendorId is required" });
+  }
+
+  try {
+    // Verify vendor exists
+    const vendor = await prisma.user.findUnique({
+      where: { id: Number(vendorId) },
+      select: { id: true, role: true, schoolIds: true, email: true, vendorName: true },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    if (vendor.role !== "VENDOR") {
+      return res.status(400).json({ message: "User is not a vendor" });
+    }
+
+    // Fetch all schools assigned to this vendor
+    const schools = await prisma.school.findMany({
+      where: {
+        id: {
+          in: vendor.schoolIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        description: true,
+        address: true,
+        contactNumber: true,
+      },
+    });
+
+    // Get admin email for each school
+    const enrichedSchools = await Promise.all(
+      schools.map(async (school) => {
+        const admin = await prisma.user.findFirst({
+          where: {
+            schoolId: school.id,
+            role: "SCHOOL_ADMIN",
+          },
+          select: { email: true },
+        });
+
+        return {
+          ...school,
+          adminEmail: admin?.email || null,
+        };
+      })
+    );
+
+    return res.json({
+      total: enrichedSchools.length,
+      vendorId: Number(vendorId),
+      vendorEmail: vendor.email,
+      vendorName: vendor.vendorName,
+      schools: enrichedSchools,
+    });
+  } catch (error: any) {
+    console.error("GET VENDOR SCHOOLS ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to fetch vendor schools",
+    });
+  }
+};
