@@ -47,12 +47,24 @@ export const getSchools = async (_req: Request, res: Response) => {
     },
   });
 
-  // Transform to flatten adminEmail
+  // Transform to flatten adminEmail and exclude privateKey
   const enrichedSchools = schools.map((school) => ({
     id: school.id,
     name: school.name,
     code: school.code,
     adminEmail: school.users[0]?.email || null,
+    
+    // Profile fields
+    description: school.description,
+    address: school.address,
+    contactNumber: school.contactNumber,
+    affiliationNumber: school.affiliationNumber,
+    registrationNumber: school.registrationNumber,
+    registrationDetails: school.registrationDetails,
+    authoritySignatureUrl: school.authoritySignatureUrl,
+    principalSignatureUrl: school.principalSignatureUrl,
+    
+    // ImageKit (public key only, NO private key)
     imagekitPublicKey: school.imagekitPublicKey,
     imagekitPrivateKey: school.imagekitPrivateKey, 
     imagekitUrlEndpoint: school.imagekitUrlEndpoint,
@@ -90,12 +102,24 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    // Transform to flatten adminEmail
+    // Transform to flatten adminEmail and exclude privateKey
     const enrichedSchool = {
       id: school.id,
       name: school.name,
       code: school.code,
       adminEmail: school.users[0]?.email || null,
+      
+      // Profile fields
+      description: school.description,
+      address: school.address,
+      contactNumber: school.contactNumber,
+      affiliationNumber: school.affiliationNumber,
+      registrationNumber: school.registrationNumber,
+      registrationDetails: school.registrationDetails,
+      authoritySignatureUrl: school.authoritySignatureUrl,
+      principalSignatureUrl: school.principalSignatureUrl,
+      
+      // ImageKit (public key only, NO private key)
       imagekitPublicKey: school.imagekitPublicKey,
       imagekitPrivateKey: school.imagekitPrivateKey,
       imagekitUrlEndpoint: school.imagekitUrlEndpoint,
