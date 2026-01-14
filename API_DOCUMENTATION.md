@@ -755,7 +755,93 @@ router.get(
 
 ---
 
-### 2. Get Student by ID
+### 2. Create Student
+- **Endpoint:** `POST /students`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
+- **Description:** Create a single student. SCHOOL_ADMIN creates students in their school. SUPER_ADMIN must provide schoolCode. Automatically creates class/section if referenced correctly.
+- **Request Body:**
+  ```json
+  {
+    "enrollmentNumber": "STU011",
+    "firstName": "John",
+    "middleName": "David",
+    "lastName": "Smith",
+    "classId": 1,
+    "sectionId": 1,
+    "schoolCode": "ABC001",
+    "rollNo": "11",
+    "admissionNo": "ADM011",
+    "dateOfBirth": "2008-06-10",
+    "fatherName": "Mr. Smith",
+    "motherName": "Mrs. Smith",
+    "currentAddress": "123 Test Street",
+    "remarks": "New admission",
+    "mobileNo": "+919876543220",
+    "email": "john@example.com",
+    "gender": "Male",
+    "religion": "Christian",
+    "aadhar": "111222333444",
+    "aparId": "AP12355",
+    "uniqueId": "UNQ011",
+    "pan": "PAN011",
+    "bloodGroup": "O+",
+    "houseName": "Gryffindor"
+  }
+  ```
+- **Required Fields:** `enrollmentNumber`, `firstName`, `classId`, `sectionId`
+- **Optional Fields:** `middleName`, `lastName`, `rollNo`, `admissionNo`, `dateOfBirth`, `fatherName`, `motherName`, `currentAddress`, `remarks`, `mobileNo`, `email`, `gender`, `religion`, `aadhar`, `aparId`, `uniqueId`, `pan`, `bloodGroup`, `houseName`
+- **Special Notes:** 
+  - `schoolCode` is required for SUPER_ADMIN only
+  - `classId` and `sectionId` must exist in the school
+  - `enrollmentNumber` must be unique across the school
+- **Response (Success):**
+  ```json
+  {
+    "message": "Student created successfully",
+    "student": {
+      "id": 11,
+      "enrollmentNumber": "STU011",
+      "firstName": "John",
+      "middleName": "David",
+      "lastName": "Smith",
+      "dateOfBirth": "2008-06-10T00:00:00.000Z",
+      "fatherName": "Mr. Smith",
+      "motherName": "Mrs. Smith",
+      "currentAddress": "123 Test Street",
+      "remarks": "New admission",
+      "mobileNo": "+919876543220",
+      "email": "john@example.com",
+      "gender": "Male",
+      "religion": "Christian",
+      "aadhar": "111222333444",
+      "apid": "AP12355",
+      "uniqueId": "UNQ011",
+      "pen": "PEN011",
+      "bloodGroup": "O+",
+      "houseName": "Gryffindor",
+      "schoolId": 1,
+      "classId": 1,
+      "sectionId": 1,
+      "photoUrl": null,
+      "photoStatus": "NOT_UPLOADED",
+      "printStatus": "PENDING",
+      "class": {...},
+      "section": {...},
+      "school": {...}
+    }
+  }
+  ```
+- **Response (Failure):**
+  - 400: Required fields missing or invalid schoolCode for SUPER_ADMIN
+  - 404: School/Class/Section not found
+  - 409: Student with this enrollment number already exists
+  - 403: Forbidden (not authorized)
+  - 500: Failed to create student
+
+---
+
+### 3. Get Student by ID
 - **Endpoint:** `GET /students/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, TEACHER
@@ -768,7 +854,7 @@ router.get(
 
 ---
 
-### 3. Update Student
+### 4. Update Student
 - **Endpoint:** `PUT /students/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -816,7 +902,7 @@ router.get(
 
 ---
 
-### 4. Delete Student
+### 5. Delete Student
 - **Endpoint:** `DELETE /students/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN (Teachers cannot delete)
@@ -836,67 +922,72 @@ router.get(
 
 ---
 
-### 5. Import Students (Bulk)
+### 6. Bulk Import Students (CSV/Excel)
 - **Endpoint:** `POST /students/import`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
-- **Description:** Bulk import students from JSON array. Automatically creates classes/sections if they don't exist. Skips duplicate enrollmentNumbers.
-- **Request Body:**
-  ```json
-  {
-    "schoolCode": "ABC001",
-    "students": [
-      {
-        "enrollmentNumber": "STU001",
-        "name": "Raj Kumar",
-        "class": "10th Standard",
-        "section": "A",
-        "fatherName": "Mr. Kumar",
-        "phoneNumber": "+919876543210",
-        "email": "raj@example.com"
-      },
-      {
-        "enrollmentNumber": "STU002",
-        "name": "Priya Singh",
-        "class": "10th Standard",
-        "section": "B"
-      }
-    ]
-  }
+- **Content-Type:** multipart/form-data
+- **Description:** Bulk import students from CSV or Excel file. Automatically creates classes and sections if they don't exist. Skips duplicate enrollmentNumbers.
+- **Form Data:**
+  - `file` (required) — CSV or Excel file (.csv, .xlsx, .xls)
+  - `schoolCode` (optional) — Required only for SUPER_ADMIN; SCHOOL_ADMIN uses their own school
+- **CSV/Excel Column Headers (Field Names):**
+  - **Required:** `enrollmentNumber`, `firstName`, `class`, `section`
+  - **Optional:** `rollNo`, `admissionNo`, `middleName`, `lastName`, `dateOfBirth`, `fatherName`, `motherName`, `currentAddress`, `remarks`, `mobileNo`, `email`, `gender`, `religion`, `aadhar`, `aparId`, `uniqueId`, `pan`, `bloodGroup`, `houseName`
+- **Example CSV Format:**
+  ```csv
+  enrollmentNumber,firstName,middleName,lastName,class,section,rollNo,admissionNo,dateOfBirth,fatherName,motherName,currentAddress,mobileNo,email,gender,religion,aadhar,aparId,uniqueId,pan,bloodGroup,houseName,remarks
+  enrollmentNumber,firstName,middleName,lastName,class,section,rollNo,admissionNo,dateOfBirth,fatherName,motherName,currentAddress,mobileNo,email,gender,religion,aadhar,apid,uniqueId,pen,bloodGroup,houseName,remarks
+  STU001,Raj,Kumar,Singh,10A,A,1,ADM001,2008-05-15,Mr. Kumar,Mrs. Singh,123 Main St,+919876543210,raj@example.com,Male,Hindu,123456789012,AP12345,UNQ001,PAN001,O+,Gryffindor,Good student
+  STU002,Priya,,Sharma,10A,B,2,ADM002,2008-07-20,Mr. Sharma,Mrs. Sharma,456 Oak Ave,+919876543211,priya@example.com,Female,Hindu,234567890123,AP12346,UNQ002,PAN002,A+,Slytherin,Excellent performance
+  STU003,Arjun,Raj,Patel,10B,A,3,ADM003,2008-03-10,Mr. Patel,Mrs. Patel,789 Pine Rd,+919876543212,arjun@example.com,Male,Hindu,345678901234,AP12347,UNQ003,PAN003,B+,Hufflepuff,Average student
   ```
-- **Note:** `schoolCode` is required for SUPER_ADMIN, optional for SCHOOL_ADMIN (uses their own school)
-- **Required Fields:** `enrollmentNumber`, `name`, `class`, `section`
-- **Optional Fields:** `fatherName`, `phoneNumber`, `email`
+- **Example Excel Format:**
+  - Same headers as CSV, organize data in columns A-V
+  - First row contains column headers
+  - Data starts from row 2
 - **Response (Success):**
   ```json
   {
-    "total": 2,
-    "inserted": 2,
+    "total": 3,
+    "inserted": 3,
+    "duplicates": 0,
     "skipped": 0,
     "errors": []
   }
   ```
-- **Response (With errors):**
+- **Response (With Errors):**
   ```json
   {
-    "total": 3,
-    "inserted": 2,
+    "total": 4,
+    "inserted": 3,
+    "duplicates": 0,
     "skipped": 1,
     "errors": [
       {
-        "row": 1,
-        "reason": "Missing required fields"
+        "row": 3,
+        "reason": "Missing required fields: enrollmentNumber, firstName, class, section"
       }
     ]
   }
   ```
+- **Response (With Duplicates):**
+  ```json
+  {
+    "total": 5,
+    "inserted": 3,
+    "duplicates": 2,
+    "skipped": 2,
+    "errors": []
+  }
+  ```
 - **Response (Failure):**
-  - 400: students array is required
+  - 400: File is required (CSV or Excel) / Unsupported file type / File is empty
   - 500: Failed to import students
 
 ---
 
-### 6. Upload Student Photo
+### 7. Upload Student Photo
 - **Endpoint:** `POST /students/:id/photo`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN

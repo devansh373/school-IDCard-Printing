@@ -378,26 +378,43 @@
 
 import { prisma } from "../db.js";
 import type { User } from "../generated/prisma/client.js";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
 interface StudentInput {
   enrollmentNumber: string;
-  name: string;
+  rollNo?: string;
+  admissionNo?: string;
+  firstName: string;
+  middleName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  fatherName?: string;
+  motherName?: string;
+  currentAddress?: string;
+  remarks?: string;
+  mobileNo?: string;
+  email?: string;
+  gender?: string;
+  religion?: string;
+  aadhar?: string;
+  aparId?: string;
+  uniqueId?: string;
+  pan?: string;
+  bloodGroup?: string;
+  houseName?: string;
   class: string;
   section: string;
-
-  fatherName?: string;
-  phoneNumber?: string;
-  email?: string;
 }
 
 interface ImportArgs {
-  students: StudentInput[];
+  file: Express.Multer.File;
   user: User;
   schoolCode?: string;
 }
 
 export const processStudentImport = async ({
-  students,
+  file,
   user,
   schoolCode,
 }: ImportArgs) => {
@@ -422,17 +439,24 @@ export const processStudentImport = async ({
     schoolId = school.id;
   }
 
+  /* ---------- Parse file (CSV or Excel) ---------- */
+  const rows = parseFile(file) as StudentInput[];
+
+  if (!rows || rows.length === 0) {
+    throw new Error("File is empty or could not be parsed");
+  }
+
   /* ---------- Load existing classes + sections ---------- */
   const classes = await prisma.class.findMany({
     where: { schoolId },
     include: { sections: true },
   });
 
-  const classMap = new Map(classes.map(c => [c.name, c]));
+  const classMap = new Map(classes.map((c) => [c.name.toLowerCase(), c]));
 
-  /* ---------- Detect existing students (for correct counts) ---------- */
-  const enrollmentNumbers = students
-    .map(s => s.enrollmentNumber)
+  /* ---------- Detect existing students ---------- */
+  const enrollmentNumbers = rows
+    .map((s) => s.enrollmentNumber)
     .filter(Boolean);
 
   const existingStudents = await prisma.student.findMany({
@@ -443,9 +467,7 @@ export const processStudentImport = async ({
     select: { enrollmentNumber: true },
   });
 
-  const existingSet = new Set(
-    existingStudents.map(s => s.enrollmentNumber)
-  );
+  const existingSet = new Set(existingStudents.map((s) => s.enrollmentNumber));
 
   /* ---------- Prepare results ---------- */
   const studentsToInsert: any[] = [];
@@ -453,18 +475,12 @@ export const processStudentImport = async ({
   let duplicateCount = 0;
 
   /* ---------- Process rows ---------- */
-  for (let i = 0; i < students.length; i++) {
-    const row = students[i];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
 
     try {
-      if (
-        !row ||
-        !row.enrollmentNumber ||
-        !row.name ||
-        !row.class ||
-        !row.section
-      ) {
-        throw new Error("Missing required fields");
+      if (!row || !row.enrollmentNumber || !row.firstName || !row.class || !row.section) {
+        throw new Error("Missing required fields: enrollmentNumber, firstName, class, section");
       }
 
       /* ----- Duplicate check ----- */
@@ -473,8 +489,9 @@ export const processStudentImport = async ({
         continue;
       }
 
-      /* ----- Ensure class ----- */
-      let cls = classMap.get(row.class);
+      /* ----- Ensure class (case-insensitive) ----- */
+      const classKeyLower = row.class.toLowerCase();
+      let cls = classMap.get(classKeyLower);
       if (!cls) {
         cls = await prisma.class.create({
           data: {
@@ -483,11 +500,13 @@ export const processStudentImport = async ({
           },
           include: { sections: true },
         });
-        classMap.set(row.class, cls);
+        classMap.set(classKeyLower, cls);
       }
 
       /* ----- Ensure section ----- */
-      let section = cls.sections.find(s => s.name === row.section);
+      let section = cls.sections.find(
+        (s) => s.name.toLowerCase() === row.section.toLowerCase()
+      );
       if (!section) {
         section = await prisma.section.create({
           data: {
@@ -498,20 +517,45 @@ export const processStudentImport = async ({
         cls.sections.push(section);
       }
 
-      /* ----- Prepare insert ----- */
+      /* ----- Parse date of birth ----- */
+      let dateOfBirth: Date | null = null;
+      if (row.dateOfBirth) {
+        const parsed = new Date(row.dateOfBirth);
+        if (!isNaN(parsed.getTime())) {
+          dateOfBirth = parsed;
+        }
+      }
+
+      /* ----- Prepare insert with all fields ----- */
       studentsToInsert.push({
         enrollmentNumber: row.enrollmentNumber,
-        name: row.name,
-        fatherName: row.fatherName ?? null,
-        phoneNumber: row.phoneNumber ?? null,
-        email: row.email ?? null,
+        rollNo: row.rollNo || null,
+        admissionNo: row.admissionNo || null,
+        firstName: row.firstName,
+        middleName: row.middleName || null,
+        lastName: row.lastName || null,
+        dateOfBirth: dateOfBirth,
+        fatherName: row.fatherName || null,
+        motherName: row.motherName || null,
+        currentAddress: row.currentAddress || null,
+        remarks: row.remarks || null,
+        mobileNo: row.mobileNo || null,
+        email: row.email || null,
+        gender: row.gender || null,
+        religion: row.religion || null,
+        aadhar: row.aadhar || null,
+        aparId: row.aparId || null,
+        uniqueId: row.uniqueId || null,
+        pan: row.pan || null,
+        bloodGroup: row.bloodGroup || null,
+        houseName: row.houseName || null,
         schoolId,
         classId: cls.id,
         sectionId: section.id,
       });
     } catch (err: any) {
       errors.push({
-        row: i + 1,
+        row: i + 2, // +1 for header, +1 for zero-index
         reason: err.message,
       });
     }
@@ -525,11 +569,99 @@ export const processStudentImport = async ({
     });
   }
 
-  /* ---------- Accurate response ---------- */
+  /* ---------- Return response ---------- */
   return {
-    total: students.length,
+    total: rows.length,
     inserted: studentsToInsert.length,
+    duplicates: duplicateCount,
     skipped: duplicateCount + errors.length,
     errors,
   };
+};
+
+const parseFile = (file: Express.Multer.File): StudentInput[] => {
+  const ext = file.originalname.split(".").pop()?.toLowerCase();
+
+  if (ext === "csv") {
+    const csvText = file.buffer.toString("utf-8");
+    const parsed = Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: false,
+    });
+
+    if (parsed.errors && parsed.errors.length > 0) {
+      throw new Error(`CSV Parse Error: ${parsed.errors[0]?.message || "Unknown error"}`);
+    }
+
+    return (parsed.data as unknown[]).map((row: any) => ({
+      enrollmentNumber: row.enrollmentNumber?.trim(),
+      rollNo: row.rollNo?.trim(),
+      admissionNo: row.admissionNo?.trim(),
+      firstName: row.firstName?.trim(),
+      middleName: row.middleName?.trim(),
+      lastName: row.lastName?.trim(),
+      dateOfBirth: row.dateOfBirth?.trim(),
+      fatherName: row.fatherName?.trim(),
+      motherName: row.motherName?.trim(),
+      currentAddress: row.currentAddress?.trim(),
+      remarks: row.remarks?.trim(),
+      mobileNo: row.mobileNo?.trim(),
+      email: row.email?.trim(),
+      gender: row.gender?.trim(),
+      religion: row.religion?.trim(),
+      aadhar: row.aadhar?.trim(),
+      aparId: row.aparId?.trim(),
+      uniqueId: row.uniqueId?.trim(),
+      pan: row.pan?.trim(),
+      bloodGroup: row.bloodGroup?.trim(),
+      houseName: row.houseName?.trim(),
+      class: row.class?.trim(),
+      section: row.section?.trim(),
+    }));
+  }
+
+  if (ext === "xlsx" || ext === "xls") {
+    const workbook = XLSX.read(file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+
+    if (!sheetName) {
+      throw new Error("Excel file has no sheets");
+    }
+
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) {
+      throw new Error("Unable to read Excel sheet");
+    }
+
+    const rows = XLSX.utils.sheet_to_json(sheet) as Record<string, any>[];
+
+    return rows.map((row) => ({
+      enrollmentNumber: row.enrollmentNumber?.toString().trim(),
+      rollNo: row.rollNo?.toString().trim(),
+      admissionNo: row.admissionNo?.toString().trim(),
+      firstName: row.firstName?.toString().trim(),
+      middleName: row.middleName?.toString().trim(),
+      lastName: row.lastName?.toString().trim(),
+      dateOfBirth: row.dateOfBirth?.toString().trim(),
+      fatherName: row.fatherName?.toString().trim(),
+      motherName: row.motherName?.toString().trim(),
+      currentAddress: row.currentAddress?.toString().trim(),
+      remarks: row.remarks?.toString().trim(),
+      mobileNo: row.mobileNo?.toString().trim(),
+      email: row.email?.toString().trim(),
+      gender: row.gender?.toString().trim(),
+      religion: row.religion?.toString().trim(),
+      aadhar: row.aadhar?.toString().trim(),
+      aparId: row.aparId?.toString().trim(),
+      uniqueId: row.uniqueId?.toString().trim(),
+      pan: row.pan?.toString().trim(),
+      bloodGroup: row.bloodGroup?.toString().trim(),
+      houseName: row.houseName?.toString().trim(),
+      class: row.class?.toString().trim(),
+      section: row.section?.toString().trim(),
+    }));
+  }
+
+  throw new Error("Unsupported file type. Only CSV and Excel (.xlsx, .xls) are supported");
 };

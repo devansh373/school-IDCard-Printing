@@ -76,11 +76,34 @@ enum PrintStatus {
 model Student {
   id               Int    @id @default(autoincrement())
   enrollmentNumber String @unique
-  name             String
+  rollNo           String?
+  admissionNo      String? @unique
 
- fatherName  String?
-  phoneNumber String?
-  email       String?
+  firstName  String
+  middleName String?
+  lastName   String?
+
+  dateOfBirth DateTime?
+
+  fatherName  String?
+  motherName  String?
+
+  currentAddress String?
+  remarks        String?
+
+  mobileNo   String?
+  email      String?
+
+  gender   String?
+  religion String?
+
+  aadhar    String?
+  aparId      String?
+  uniqueId  String?
+
+  pan       String?
+  bloodGroup String?
+  houseName String?
 
   schoolId  Int
   classId   Int

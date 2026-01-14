@@ -53,8 +53,8 @@ const students = await prisma.student.findMany({
     ...(parsedPrintStatus && { printStatus: parsedPrintStatus }),
     ...(search && {
       OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { enrollmentNumber: { contains: search } },
+        { name: { contains: search, mode: "insensitive" } } as any,
+        { enrollmentNumber: { contains: search } } as any,
       ],
     }),
     ...(className && { class: { name: className } }),
@@ -121,53 +121,149 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
   return res.json(student);
 };
 
+/**
+ * Create a single student
+ */
+export const createStudent = async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      enrollmentNumber,
+      rollNo,
+      admissionNo,
+      firstName,
+      middleName,
+      lastName,
+      dateOfBirth,
+      fatherName,
+      motherName,
+      currentAddress,
+      remarks,
+      mobileNo,
+      email,
+      gender,
+      religion,
+      aadhar,
+      aparId,
+      uniqueId,
+      pan,
+      bloodGroup,
+      houseName,
+      classId,
+      sectionId,
+      schoolCode,
+    } = req.body;
 
-// export const uploadStudentPhoto = async (
-//   req: AuthRequest,
-//   res: Response
-// ) => {
-//   const studentId = Number(req.params.id);
+    // Validate required fields
+    if (!enrollmentNumber || !firstName || !classId || !sectionId) {
+      return res.status(400).json({
+        message: "Required fields: enrollmentNumber, firstName, classId, sectionId",
+      });
+    }
 
-//   if (!req.file) {
-//     return res.status(400).json({ message: "Image file required" });
-//   }
+    // Resolve schoolId
+    let schoolId: number;
+    if (req.user?.role === "SCHOOL_ADMIN") {
+      schoolId = req.user.schoolId!;
+    } else if (req.user?.role === "SUPER_ADMIN") {
+      if (!schoolCode) {
+        return res.status(400).json({
+          message: "schoolCode is required for SUPER_ADMIN",
+        });
+      }
+      const school = await prisma.school.findUnique({
+        where: { code: schoolCode },
+      });
+      if (!school) {
+        return res.status(404).json({ message: "School not found" });
+      }
+      schoolId = school.id;
+    } else {
+      return res.status(403).json({ message: "Forbidden" });
+    }
 
-//   const student = await prisma.student.findUnique({
-//     where: { id: studentId },
-//   });
+    // Verify class and section exist in the school
+    const classExists = await prisma.class.findFirst({
+      where: { id: Number(classId), schoolId },
+    });
 
-//   if (!student) {
-//     return res.status(404).json({ message: "Student not found" });
-//   }
+    if (!classExists) {
+      return res.status(404).json({ message: "Class not found in this school" });
+    }
 
-//   // RBAC: same school
-//   if (
-//     (req.user?.role === "SCHOOL_ADMIN" ||
-//       req.user?.role === "TEACHER") &&
-//     student.schoolId !== req.user.schoolId
-//   ) {
-//     return res.status(403).json({ message: "Forbidden" });
-//   }
+    const sectionExists = await prisma.section.findFirst({
+      where: { id: Number(sectionId), classId: Number(classId) },
+    });
 
-//   const uploadResult = await imagekit.upload({
-//     file: req.file.buffer,
-//     fileName: `student_${studentId}.jpg`,
-//     folder: `/students/${student.schoolId}`,
-//   });
+    if (!sectionExists) {
+      return res.status(404).json({ message: "Section not found in this class" });
+    }
 
-//   await prisma.student.update({
-//     where: { id: studentId },
-//     data: {
-//       photoUrl: uploadResult.url,
-//       photoStatus: "UPLOADED",
-//     },
-//   });
+    // Check for duplicate enrollment number
+    const existingStudent = await prisma.student.findUnique({
+      where: { enrollmentNumber },
+    });
 
-//   return res.json({
-//     message: "Photo uploaded successfully",
-//     photoUrl: uploadResult.url,
-//   });
-// };
+    if (existingStudent) {
+      return res.status(409).json({
+        message: "Student with this enrollment number already exists",
+      });
+    }
+
+    // Parse date of birth if provided
+    let parsedDateOfBirth: Date | null = null;
+    if (dateOfBirth) {
+      const parsed = new Date(dateOfBirth);
+      if (!isNaN(parsed.getTime())) {
+        parsedDateOfBirth = parsed;
+      }
+    }
+
+    // Create student
+    const student = await prisma.student.create({
+      data: {
+        enrollmentNumber,
+        rollNo: rollNo || null,
+        admissionNo: admissionNo || null,
+        firstName,
+        middleName: middleName || null,
+        lastName: lastName || null,
+        dateOfBirth: parsedDateOfBirth,
+        fatherName: fatherName || null,
+        motherName: motherName || null,
+        currentAddress: currentAddress || null,
+        remarks: remarks || null,
+        mobileNo: mobileNo || null,
+        email: email || null,
+        gender: gender || null,
+        religion: religion || null,
+        aadhar: aadhar || null,
+        aparId: aparId || null,
+        uniqueId: uniqueId || null,
+        pan: pan || null,
+        bloodGroup: bloodGroup || null,
+        houseName: houseName || null,
+        schoolId,
+        classId: Number(classId),
+        sectionId: Number(sectionId),
+      },
+      include: {
+        class: true,
+        section: true,
+        school: true,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Student created successfully",
+      student,
+    });
+  } catch (err: any) {
+    console.error("Create student error:", err);
+    return res.status(500).json({
+      message: err.message || "Failed to create student",
+    });
+  }
+};
 
 import ImageKit from "imagekit";
 

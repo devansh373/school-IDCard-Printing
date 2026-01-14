@@ -121,6 +121,7 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
         vendorStatus: true,
         isActive: true,
         createdAt: true,
+        schoolIds: true,
       },
       orderBy: { createdAt: "desc" },
     });

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
 import { authorizeRoles } from "../middlewares/authorize.middleware.js";
-import { getStudents, getStudentById, updateStudent, deleteStudent } from "../controllers/student.controller.js";
+import { getStudents, getStudentById, createStudent, updateStudent, deleteStudent } from "../controllers/student.controller.js";
 import { upload } from "../middlewares/upload.middleware.js";
 import { importStudents } from "../controllers/student-import.controller.js";
 import { uploadImage } from "../middlewares/upload-image.middleware.js";
@@ -13,6 +13,13 @@ router.get(
   authenticate,
   authorizeRoles("SUPER_ADMIN", "SCHOOL_ADMIN", "TEACHER"),
   getStudents
+);
+
+router.post(
+  "/",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN", "SCHOOL_ADMIN"),
+  createStudent
 );
 
 router.get(
@@ -40,7 +47,7 @@ router.post(
   "/import",
   authenticate,
   authorizeRoles("SUPER_ADMIN", "SCHOOL_ADMIN"),
-//   upload.single("file"),
+  upload.single("file"),
   importStudents
 );
 
