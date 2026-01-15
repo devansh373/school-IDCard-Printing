@@ -304,8 +304,16 @@ export const getVendorSchools = async (
   req: AuthRequest,
   res: Response
 ) => {
-  const { vendorId } = req.params;
+  let { vendorId } = req.params;
   const { limit = "10", page = "1" } = req.query as Record<string, string>;
+
+  // If vendorId not provided, use logged-in vendor's ID
+  if (!vendorId) {
+    if (req.user?.role !== "VENDOR") {
+      return res.status(400).json({ message: "vendorId is required for non-vendor users" });
+    }
+    vendorId = String(req.user.id);
+  }
 
   // RBAC: SUPER_ADMIN or the vendor themselves
   if (

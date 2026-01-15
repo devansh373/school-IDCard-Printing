@@ -34,8 +34,9 @@ router.delete(
 );
 
 router.get(
-  "/:vendorId/schools",
-  authenticate,
+    "/:vendorId/schools",
+    authenticate,
+    authorizeRoles("SUPER_ADMIN","VENDOR"),
   getVendorSchools
 );
 
