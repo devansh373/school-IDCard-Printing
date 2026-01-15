@@ -358,7 +358,11 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const { role, schoolId, isActive, search } = req.query as Record<string, string>;
+  const { role, schoolId, isActive, search, limit = "10", page = "1" } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+  const skip = (pageNum - 1) * limitNum;
 
   try {
     const where: any = {};
@@ -385,41 +389,29 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        vendorName: true,
-        phoneNumber: true,
-        location: true,
-        vendorStatus: true,
-        schoolId: true,
-        mustChangePassword: true,
-        isActive: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Enrich with school info for school-scoped users
-    const usersWithSchool = await Promise.all(
-      users.map(async (user) => {
-        if (user.schoolId) {
-          const school = await prisma.school.findUnique({
-            where: { id: user.schoolId },
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          school: {
             select: { id: true, name: true, code: true },
-          });
-          return { ...user, school };
-        }
-        return user;
-      })
-    );
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      prisma.user.count({ where }),
+    ]);
 
     return res.json({
-      total: usersWithSchool.length,
-      users: usersWithSchool,
+      data: users,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch users" });
@@ -439,7 +431,11 @@ export const getAllSchoolAdmins = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const { schoolId, isActive, search } = req.query as Record<string, string>;
+  const { schoolId, isActive, search, limit = "10", page = "1" } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+  const skip = (pageNum - 1) * limitNum;
 
   try {
     const where: any = {
@@ -460,36 +456,29 @@ export const getAllSchoolAdmins = async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    const admins = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        schoolId: true,
-        mustChangePassword: true,
-        isActive: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Enrich with school details
-    const adminsWithSchool = await Promise.all(
-      admins.map(async (admin) => {
-        if (admin.schoolId) {
-          const school = await prisma.school.findUnique({
-            where: { id: admin.schoolId },
+    const [admins, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          school: {
             select: { id: true, name: true, code: true },
-          });
-          return { ...admin, school };
-        }
-        return admin;
-      })
-    );
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      prisma.user.count({ where }),
+    ]);
 
     return res.json({
-      total: adminsWithSchool.length,
-      admins: adminsWithSchool,
+      data: admins,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch school admins" });

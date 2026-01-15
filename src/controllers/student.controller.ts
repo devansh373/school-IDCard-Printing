@@ -2,6 +2,8 @@ import type { Response } from "express";
 import type { AuthRequest } from "../middlewares/authenticate.middleware.js";
 import {prisma} from "../db.js";
 import  { PrintStatus } from "../generated/prisma/enums.js";
+import ImageKit from "imagekit";
+
 // import { imagekit } from "../config/imagekit.js";
 
 export const getStudents = async (req: AuthRequest, res: Response) => {
@@ -11,7 +13,13 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
     section: sectionName,
     printStatus,
     search,
+    limit = "10",
+    page = "1",
   } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10)); // Max 100 per page
+  const skip = (pageNum - 1) * limitNum;
 
   let schoolId: number | undefined;
 
@@ -34,63 +42,73 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
     schoolId = req.user.schoolId!;
   }
 
-
   let parsedPrintStatus: PrintStatus | undefined;
 
-if (printStatus) {
-  if (Object.values(PrintStatus).includes(printStatus as PrintStatus)) {
-    parsedPrintStatus = printStatus as PrintStatus;
-  } else {
-    return res.status(400).json({
-      message: `Invalid printStatus: ${printStatus}`,
-    });
+  if (printStatus) {
+    if (Object.values(PrintStatus).includes(printStatus as PrintStatus)) {
+      parsedPrintStatus = printStatus as PrintStatus;
+    } else {
+      return res.status(400).json({
+        message: `Invalid printStatus: ${printStatus}`,
+      });
+    }
   }
-}
 
-const students = await prisma.student.findMany({
-  where: {
-    ...(schoolId && { schoolId }),
-    ...(parsedPrintStatus && { printStatus: parsedPrintStatus }),
-    ...(search && {
-      OR: [
-        { name: { contains: search, mode: "insensitive" } } as any,
-        { enrollmentNumber: { contains: search } } as any,
-      ],
-    }),
-    ...(className && { class: { name: className } }),
-    ...(sectionName && { section: { name: sectionName } }),
-  },
-  include: {
-    class: true,
-    section: true,
-    school: true,
-  },
-  orderBy: { id: "desc" },
-});
+  try {
+    const [students, total] = await Promise.all([
+      prisma.student.findMany({
+        where: {
+          ...(schoolId && { schoolId }),
+          ...(parsedPrintStatus && { printStatus: parsedPrintStatus }),
+          ...(search && {
+            OR: [
+              { firstName: { contains: search, mode: "insensitive" } } as any,
+              { lastName: { contains: search, mode: "insensitive" } } as any,
+              { enrollmentNumber: { contains: search } } as any,
+            ],
+          }),
+          ...(className && { class: { name: className } }),
+          ...(sectionName && { section: { name: sectionName } }),
+        },
+        include: {
+          class: true,
+          section: true,
+          school: true,
+        },
+        orderBy: { id: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      prisma.student.count({
+        where: {
+          ...(schoolId && { schoolId }),
+          ...(parsedPrintStatus && { printStatus: parsedPrintStatus }),
+          ...(search && {
+            OR: [
+              { firstName: { contains: search, mode: "insensitive" } } as any,
+              { lastName: { contains: search, mode: "insensitive" } } as any,
+              { enrollmentNumber: { contains: search } } as any,
+            ],
+          }),
+          ...(className && { class: { name: className } }),
+          ...(sectionName && { section: { name: sectionName } }),
+        },
+      }),
+    ]);
 
-
-//   const students = await prisma.student.findMany({
-//     where: {
-//       ...(schoolId && { schoolId }),
-//       ...(printStatus && { printStatus }),
-//       ...(search && {
-//         OR: [
-//           { name: { contains: search, mode: "insensitive" } },
-//           { enrollmentNumber: { contains: search } },
-//         ],
-//       }),
-//       ...(className && { class: { name: className } }),
-//       ...(sectionName && { section: { name: sectionName } }),
-//     },
-//     include: {
-//       class: true,
-//       section: true,
-//       school: true,
-//     },
-//     orderBy: { id: "desc" },
-//   });
-
-  return res.json(students);
+    return res.json({
+      data: students,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    console.error("GET STUDENTS ERROR:", error);
+    return res.status(500).json({ message: "Failed to fetch students" });
+  }
 };
 
 export const getStudentById = async (req: AuthRequest, res: Response) => {
@@ -265,7 +283,6 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
   }
 };
 
-import ImageKit from "imagekit";
 
 export const uploadStudentPhoto = async (
   req: AuthRequest,

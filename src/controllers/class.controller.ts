@@ -28,19 +28,47 @@ export const createClass = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Get classes (scoped)
+ * Get classes (scoped) with optional filters
  */
 export const getClasses = async (req: AuthRequest, res: Response) => {
-  const where =
+  const { search, limit = "10", page = "1" } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+  const skip = (pageNum - 1) * limitNum;
+
+  const where: any =
     req.user?.role === "SUPER_ADMIN"
       ? {}
       : { schoolId: req.user?.schoolId! };
 
-  const classes = await prisma.class.findMany({
-    where,
-    include: { sections: true },
-    orderBy:{name:"asc"}
-  });
+  if (search) {
+    where.name = { contains: search, mode: "insensitive" };
+  }
 
-  return res.json(classes);
+  try {
+    const [classes, total] = await Promise.all([
+      prisma.class.findMany({
+        where,
+        include: { sections: true },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        skip,
+        take: limitNum,
+      }),
+      prisma.class.count({ where }),
+    ]);
+
+    return res.json({
+      data: classes,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    console.error("GET CLASSES ERROR:", error);
+    return res.status(500).json({ message: "Failed to fetch classes" });
+  }
 };

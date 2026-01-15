@@ -14,9 +14,10 @@ datasource db {
 }
 
 model School {
-  id   Int    @id @default(autoincrement())
-  name String
-  code String @unique
+  id         Int     @id @default(autoincrement())
+  name       String
+  code       String  @unique
+  adminEmail String?
  
   // Optional school profile fields
   description           String?

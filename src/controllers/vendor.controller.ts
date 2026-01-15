@@ -85,7 +85,11 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const { vendorStatus, isActive, search } = req.query as Record<string, string>;
+  const { vendorStatus, isActive, search, limit = "10", page = "1" } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+  const skip = (pageNum - 1) * limitNum;
 
   try {
     const where: any = {
@@ -110,25 +114,35 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    const vendors = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        vendorName: true,
-        phoneNumber: true,
-        location: true,
-        vendorStatus: true,
-        isActive: true,
-        createdAt: true,
-        schoolIds: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const [vendors, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          vendorName: true,
+          phoneNumber: true,
+          location: true,
+          vendorStatus: true,
+          isActive: true,
+          createdAt: true,
+          schoolIds: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      prisma.user.count({ where }),
+    ]);
 
     return res.json({
-      total: vendors.length,
-      vendors,
+      data: vendors,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch vendors" });
@@ -291,6 +305,7 @@ export const getVendorSchools = async (
   res: Response
 ) => {
   const { vendorId } = req.params;
+  const { limit = "10", page = "1" } = req.query as Record<string, string>;
 
   // RBAC: SUPER_ADMIN or the vendor themselves
   if (
@@ -303,6 +318,10 @@ export const getVendorSchools = async (
   if (!vendorId || isNaN(Number(vendorId))) {
     return res.status(400).json({ message: "Valid vendorId is required" });
   }
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+  const skip = (pageNum - 1) * limitNum;
 
   try {
     // Verify vendor exists
@@ -319,11 +338,16 @@ export const getVendorSchools = async (
       return res.status(400).json({ message: "User is not a vendor" });
     }
 
-    // Fetch all schools assigned to this vendor
+    // Get total count of assigned schools
+    const total = vendor.schoolIds.length;
+
+    // Get paginated schools
+    const paginatedSchoolIds = vendor.schoolIds.slice(skip, skip + limitNum);
+
     const schools = await prisma.school.findMany({
       where: {
         id: {
-          in: vendor.schoolIds,
+          in: paginatedSchoolIds,
         },
       },
       select: {
@@ -333,33 +357,23 @@ export const getVendorSchools = async (
         description: true,
         address: true,
         contactNumber: true,
+        adminEmail: true,
       },
     });
 
-    // Get admin email for each school
-    const enrichedSchools = await Promise.all(
-      schools.map(async (school) => {
-        const admin = await prisma.user.findFirst({
-          where: {
-            schoolId: school.id,
-            role: "SCHOOL_ADMIN",
-          },
-          select: { email: true },
-        });
-
-        return {
-          ...school,
-          adminEmail: admin?.email || null,
-        };
-      })
-    );
-
     return res.json({
-      total: enrichedSchools.length,
-      vendorId: Number(vendorId),
-      vendorEmail: vendor.email,
-      vendorName: vendor.vendorName,
-      schools: enrichedSchools,
+      data: schools,
+      vendorInfo: {
+        vendorId: Number(vendorId),
+        vendorEmail: vendor.email,
+        vendorName: vendor.vendorName,
+      },
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
   } catch (error: any) {
     console.error("GET VENDOR SCHOOLS ERROR:", error);

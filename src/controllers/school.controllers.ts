@@ -33,46 +33,66 @@ import {prisma} from "../db.js";
 // };
 
 /**
- * Get all schools
+ * Get all schools with optional filters
  */
-export const getSchools = async (_req: Request, res: Response) => {
-  const schools = await prisma.school.findMany({
-    orderBy: { id: "asc" },
-    include: {
-      users: {
-        where: { role: "SCHOOL_ADMIN" },
-        select: { email: true },
-        take: 1,
+export const getSchools = async (req: Request, res: Response) => {
+  const { search, limit = "10", page = "1" } = req.query as Record<string, string>;
+  
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10)); // Max 100 per page
+  const skip = (pageNum - 1) * limitNum;
+
+  try {
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { code: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [schools, total] = await Promise.all([
+      prisma.school.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          adminEmail: true,
+          description: true,
+          address: true,
+          contactNumber: true,
+          affiliationNumber: true,
+          registrationNumber: true,
+          registrationDetails: true,
+          authoritySignatureUrl: true,
+          principalSignatureUrl: true,
+          imagekitPublicKey: true,
+          imagekitUrlEndpoint: true,
+          imagekitFolder: true,
+          createdAt: true,
+        },
+      }),
+      prisma.school.count({ where }),
+    ]);
+
+    return res.json({
+      data: schools,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
       },
-    },
-  });
-
-  // Transform to flatten adminEmail and exclude privateKey
-  const enrichedSchools = schools.map((school) => ({
-    id: school.id,
-    name: school.name,
-    code: school.code,
-    adminEmail: school.users[0]?.email || null,
-    
-    // Profile fields
-    description: school.description,
-    address: school.address,
-    contactNumber: school.contactNumber,
-    affiliationNumber: school.affiliationNumber,
-    registrationNumber: school.registrationNumber,
-    registrationDetails: school.registrationDetails,
-    authoritySignatureUrl: school.authoritySignatureUrl,
-    principalSignatureUrl: school.principalSignatureUrl,
-    
-    // ImageKit (public key only, NO private key)
-    imagekitPublicKey: school.imagekitPublicKey,
-    imagekitPrivateKey: school.imagekitPrivateKey, 
-    imagekitUrlEndpoint: school.imagekitUrlEndpoint,
-    imagekitFolder: school.imagekitFolder,
-    createdAt: school.createdAt,
-  }));
-
-  return res.json(enrichedSchools);
+    });
+  } catch (error: any) {
+    console.error("GET SCHOOLS ERROR:", error);
+    return res.status(500).json({ message: "Failed to fetch schools" });
+  }
 };
 
 /**
@@ -89,12 +109,24 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
   try {
     const school = await prisma.school.findUnique({
       where: { id: Number(schoolId) },
-      include: {
-        users: {
-          where: { role: "SCHOOL_ADMIN" },
-          select: { email: true },
-          take: 1,
-        },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        adminEmail: true,
+        description: true,
+        address: true,
+        contactNumber: true,
+        affiliationNumber: true,
+        registrationNumber: true,
+        registrationDetails: true,
+        authoritySignatureUrl: true,
+        principalSignatureUrl: true,
+        imagekitPublicKey: true,
+        imagekitPrivateKey: true,
+        imagekitUrlEndpoint: true,
+        imagekitFolder: true,
+        createdAt: true,
       },
     });
 
@@ -102,33 +134,7 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    // Transform to flatten adminEmail and exclude privateKey
-    const enrichedSchool = {
-      id: school.id,
-      name: school.name,
-      code: school.code,
-      adminEmail: school.users[0]?.email || null,
-      
-      // Profile fields
-      description: school.description,
-      address: school.address,
-      contactNumber: school.contactNumber,
-      affiliationNumber: school.affiliationNumber,
-      registrationNumber: school.registrationNumber,
-      registrationDetails: school.registrationDetails,
-      authoritySignatureUrl: school.authoritySignatureUrl,
-      principalSignatureUrl: school.principalSignatureUrl,
-      
-      // ImageKit (public key only, NO private key)
-      imagekitPublicKey: school.imagekitPublicKey,
-      imagekitPrivateKey: school.imagekitPrivateKey,
-      imagekitUrlEndpoint: school.imagekitUrlEndpoint,
-      imagekitFolder: school.imagekitFolder,
-      
-      createdAt: school.createdAt,
-    };
-
-    return res.json(enrichedSchool);
+    return res.json(school);
   } catch (error: any) {
     console.error("GET SCHOOL ERROR:", error);
     return res.status(500).json({
@@ -146,160 +152,7 @@ import { generateTempPassword } from "../utils/password.js";
 import { sendSchoolAdminCredentials } from "../utils/mailer.js";
 import type { Prisma, School } from "../generated/prisma/client.js";
 import { imagekit } from "../config/imagekit.js";
-
-// export const registerSchoolWithAdmin = async (
-//   req: AuthRequest,
-//   res: Response
-// ) => {
-//   const { name, code, adminEmail } = req.body as {
-//     name?: string;
-//     code?: string;
-//     adminEmail?: string;
-//   };
-
-//   if (!name || !code || !adminEmail) {
-//     return res.status(400).json({
-//       message: "name, code and adminEmail are required",
-//     });
-//   }
-
-//   // RBAC
-//   if (req.user?.role !== "SUPER_ADMIN") {
-//     return res.status(403).json({ message: "Forbidden" });
-//   }
-
-//   try {
-//     // Check duplicates early
-//     const existingSchool = await prisma.school.findUnique({
-//       where: { code },
-//       select: { id: true },
-//     });
-//     if (existingSchool) {
-//       return res.status(409).json({ message: "School code already exists" });
-//     }
-
-//     const existingUser = await prisma.user.findUnique({
-//       where: { email: adminEmail },
-//       select: { id: true },
-//     });
-//     if (existingUser) {
-//       return res.status(409).json({ message: "Admin email already exists" });
-//     }
-
-//     // Transaction keeps data consistent
-//     const result = await prisma.$transaction(async (tx:Prisma.TransactionClient) => {
-//       const school = await tx.school.create({
-//         data: { name, code },
-//       });
-
-//       const tempPassword = generateTempPassword(10);
-//       const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-//       await tx.user.create({
-//         data: {
-//           email: adminEmail,
-//           passwordHash,
-//           role: "SCHOOL_ADMIN",
-//           schoolId: school.id,
-//         },
-//       });
-
-//       // Send email AFTER DB success
-//       await sendSchoolAdminCredentials({
-//         to: adminEmail,
-//         schoolCode: code,
-//         password: tempPassword,
-//       });
-
-//       return school;
-//     });
-
-//     return res.status(201).json({
-//       message: "School created and admin credentials sent via email",
-//       schoolId: result.id,
-//     });
-//   } catch (error: any) {
-//     // Prisma unique constraint
-//     if (error.code === "P2002") {
-//       return res.status(409).json({ message: "Duplicate entry detected" });
-//     }
-//     return res.status(500).json({
-//       message: "Failed to register school",
-//     });
-//   }
-// };
-
-// export const registerSchoolWithAdmin = async (
-//   req: AuthRequest,
-//   res: Response
-// ) => {
-//   const { name, code, adminEmail } = req.body;
-
-//   if (!name || !code || !adminEmail) {
-//     return res.status(400).json({
-//       message: "name, code and adminEmail are required",
-//     });
-//   }
-
-//   if (req.user?.role !== "SUPER_ADMIN") {
-//     return res.status(403).json({ message: "Forbidden" });
-//   }
-
-//   try {
-//     const existingSchool = await prisma.school.findUnique({
-//       where: { code },
-//       select: { id: true },
-//     });
-//     if (existingSchool) {
-//       return res.status(409).json({ message: "School code already exists" });
-//     }
-
-//     const existingUser = await prisma.user.findUnique({
-//       where: { email: adminEmail },
-//       select: { id: true },
-//     });
-//     if (existingUser) {
-//       return res.status(409).json({ message: "Admin email already exists" });
-//     }
-
-//     const { school, tempPassword } = await prisma.$transaction(async (tx:Prisma.TransactionClient): Promise<{ school: School; tempPassword: string }> => {
-//       const school = await tx.school.create({
-//         data: { name, code },
-//       });
-
-//       const tempPassword = generateTempPassword(10);
-//       const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-//       await tx.user.create({
-//         data: {
-//           email: adminEmail,
-//           passwordHash,
-//           role: "SCHOOL_ADMIN",
-//           schoolId: school.id,
-//         },
-//       });
-
-//       return { school, tempPassword };
-//     });
-
-//     // ✅ Email outside transaction
-//     sendSchoolAdminCredentials({
-//       to: adminEmail,
-//       schoolCode: code,
-//       password: tempPassword,
-//     }).catch(console.error);
-
-//     return res.status(201).json({
-//       message: "School created and admin email queued",
-//       schoolId: school.id,
-//     });
-//   } catch (error: any) {
-//     console.error("REGISTER SCHOOL ERROR:", error);
-//     return res.status(500).json({
-//       message: error.message || "Failed to register school",
-//     });
-//   }
-// };
+import ImageKit from "imagekit";
 
 
 export const registerSchoolWithAdmin = async (
@@ -482,6 +335,145 @@ export const updateImagekitCredentials = async (
     console.error("UPDATE IMAGEKIT ERROR:", error);
     return res.status(500).json({
       message: error.message || "Failed to update ImageKit credentials",
+    });
+  }
+};
+
+/**
+ * Upload Both or Either Signatures to ImageKit
+ * Can upload principal signature, authority signature, or both
+ */
+export const uploadSignatures = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  const { schoolId } = req.params;
+
+  // Cast files as Express.Multer.File[] or single file
+  const files = (req.files as any) || {};
+  const principalFile = files.principal?.[0];
+  const authorityFile = files.authority?.[0];
+
+  if (!principalFile && !authorityFile) {
+    return res.status(400).json({ message: "At least one signature file required (principal or authority)" });
+  }
+
+  // 🔐 RBAC: SUPER_ADMIN or SCHOOL_ADMIN (only their own school)
+  if (req.user?.role === "SCHOOL_ADMIN" && req.user.schoolId !== Number(schoolId)) {
+    return res.status(403).json({ message: "Forbidden: Can only upload to your own school" });
+  }
+
+  if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "SCHOOL_ADMIN") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  // Validate school exists
+  if (!schoolId || isNaN(Number(schoolId))) {
+    return res.status(400).json({ message: "Valid schoolId is required" });
+  }
+
+  try {
+    // 🔍 Fetch school with ImageKit config and existing signatures
+    const school = await prisma.school.findUnique({
+      where: { id: Number(schoolId) },
+      select: {
+        id: true,
+        imagekitPublicKey: true,
+        imagekitPrivateKey: true,
+        imagekitUrlEndpoint: true,
+        imagekitFolder: true,
+        principalSignatureUrl: true,
+        authoritySignatureUrl: true,
+      },
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    // 🚫 Block upload if ImageKit not configured
+    if (!school.imagekitPublicKey || !school.imagekitPrivateKey || !school.imagekitUrlEndpoint) {
+      return res.status(400).json({
+        message: "Image upload is disabled. Please configure ImageKit credentials for this school.",
+      });
+    }
+
+    // ✅ Create ImageKit instance (per school)
+    const ikInstance = new ImageKit({
+      publicKey: school.imagekitPublicKey,
+      privateKey: school.imagekitPrivateKey,
+      urlEndpoint: school.imagekitUrlEndpoint,
+    });
+
+    // 📁 Always use 'signatures' folder (separate from student photos)
+    const signatureFolder = `/signatures`;
+
+    // 📤 Upload and replace signatures
+    const updateData: any = {};
+
+    if (principalFile) {
+      // Delete old principal signature if exists
+      if (school.principalSignatureUrl) {
+        try {
+          await ikInstance.deleteFile(school.principalSignatureUrl);
+        } catch (deleteError) {
+          console.warn("Failed to delete old principal signature:", deleteError);
+          // Continue with upload even if delete fails
+        }
+      }
+
+      // Upload new principal signature
+      const principalResult = await ikInstance.upload({
+        file: principalFile.buffer,
+        fileName: `principal_signature_${Date.now()}.png`,
+        folder: signatureFolder,
+        useUniqueFileName: true,
+      });
+      updateData.principalSignatureUrl = principalResult.url;
+    }
+
+    if (authorityFile) {
+      // Delete old authority signature if exists
+      if (school.authoritySignatureUrl) {
+        try {
+          await ikInstance.deleteFile(school.authoritySignatureUrl);
+        } catch (deleteError) {
+          console.warn("Failed to delete old authority signature:", deleteError);
+          // Continue with upload even if delete fails
+        }
+      }
+
+      // Upload new authority signature
+      const authorityResult = await ikInstance.upload({
+        file: authorityFile.buffer,
+        fileName: `authority_signature_${Date.now()}.png`,
+        folder: signatureFolder,
+        useUniqueFileName: true,
+      });
+      updateData.authoritySignatureUrl = authorityResult.url;
+    }
+
+    // 💾 Save URLs in DB
+    const updatedSchool = await prisma.school.update({
+      where: { id: Number(schoolId) },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        principalSignatureUrl: true,
+        authoritySignatureUrl: true,
+      },
+    });
+
+    return res.json({
+      message: "Signatures uploaded and replaced successfully",
+      school: updatedSchool,
+    });
+  } catch (error: any) {
+    console.error("UPLOAD SIGNATURES ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to upload signatures",
     });
   }
 };

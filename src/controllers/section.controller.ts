@@ -36,10 +36,16 @@ export const createSection = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Get sections (scoped)
+ * Get sections (scoped) with optional filters
  */
 export const getSections = async (req: AuthRequest, res: Response) => {
-  const where =
+  const { search, classId, limit = "10", page = "1" } = req.query as Record<string, string>;
+
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+  const skip = (pageNum - 1) * limitNum;
+
+  const where: any =
     req.user?.role === "SUPER_ADMIN"
       ? {}
       : {
@@ -48,10 +54,37 @@ export const getSections = async (req: AuthRequest, res: Response) => {
           },
         };
 
-  const sections = await prisma.section.findMany({
-    where,
-    orderBy:{name:"asc"}
-  });
+  if (classId) {
+    where.classId = Number(classId);
+  }
 
-  return res.json(sections);
+  if (search) {
+    where.name = { contains: search, mode: "insensitive" };
+  }
+
+  try {
+    const [sections, total] = await Promise.all([
+      prisma.section.findMany({
+        where,
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        skip,
+        take: limitNum,
+      }),
+      prisma.section.count({ where }),
+    ]);
+
+    return res.json({
+      data: sections,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error: any) {
+    console.error("GET SECTIONS ERROR:", error);
+    return res.status(500).json({ message: "Failed to fetch sections" });
+  }
 };
+

@@ -254,18 +254,19 @@ router.get(
 - **Endpoint:** `GET /auth/users`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
-- **Description:** List all users with optional filters (role, school, active status).
+- **Description:** List all users with optional filters (role, school, active status) and pagination.
 - **Query Parameters:**
   - `role` (string): Filter by role (SUPER_ADMIN, SCHOOL_ADMIN, TEACHER, VENDOR)
   - `schoolId` (number): Filter by school ID
   - `isActive` (boolean): Filter by active status (true/false)
   - `search` (string): Search by email or vendor name
-- **Example Request:** `GET /auth/users?role=VENDOR&isActive=true&search=ABC`
+  - `limit` (number, optional): Items per page. Default: 10, Max: 100
+  - `page` (number, optional): Page number. Default: 1
+- **Example Request:** `GET /auth/users?role=VENDOR&isActive=true&search=ABC&limit=20&page=1`
 - **Response (Success):**
   ```json
   {
-    "total": 2,
-    "users": [
+    "data": [
       {
         "id": 5,
         "email": "vendor1@example.com",
@@ -277,7 +278,8 @@ router.get(
         "schoolId": null,
         "mustChangePassword": false,
         "isActive": true,
-        "createdAt": "2026-01-10T12:00:00Z"
+        "createdAt": "2026-01-10T12:00:00Z",
+        "school": null
       },
       {
         "id": 6,
@@ -290,9 +292,16 @@ router.get(
         "schoolId": null,
         "mustChangePassword": true,
         "isActive": true,
-        "createdAt": "2026-01-11T12:00:00Z"
+        "createdAt": "2026-01-11T12:00:00Z",
+        "school": null
       }
-    ]
+    ],
+    "pagination": {
+      "total": 25,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 3
+    }
   }
   ```
 - **Response (Failure):**
@@ -307,17 +316,18 @@ router.get(
 - **Endpoint:** `GET /auth/vendors`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
-- **Description:** List all vendors with optional filters (status, active status).
+- **Description:** List all vendors with optional filters (status, active status) and pagination.
 - **Query Parameters:**
   - `vendorStatus` (string): Filter by vendor status (ONBOARDING, ACTIVE, INACTIVE)
   - `isActive` (boolean): Filter by active status (true/false)
   - `search` (string): Search by email or vendor name
-- **Example Request:** `GET /auth/vendors?vendorStatus=ACTIVE&isActive=true&search=Printing`
+  - `limit` (number, optional): Items per page. Default: 10, Max: 100
+  - `page` (number, optional): Page number. Default: 1
+- **Example Request:** `GET /auth/vendors?vendorStatus=ACTIVE&isActive=true&search=Printing&limit=20&page=1`
 - **Response (Success):**
   ```json
   {
-    "total": 1,
-    "vendors": [
+    "data": [
       {
         "id": 5,
         "email": "vendor@example.com",
@@ -326,9 +336,16 @@ router.get(
         "location": "New York",
         "vendorStatus": "ACTIVE",
         "isActive": true,
-        "createdAt": "2026-01-10T12:00:00Z"
+        "createdAt": "2026-01-10T12:00:00Z",
+        "schoolIds": [1, 2, 3]
       }
-    ]
+    ],
+    "pagination": {
+      "total": 15,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 2
+    }
   }
   ```
 - **Response (Failure):**
@@ -343,17 +360,18 @@ router.get(
 - **Endpoint:** `GET /auth/school-admins`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
-- **Description:** List all school admins with their assigned schools.
+- **Description:** List all school admins with their assigned schools and pagination.
 - **Query Parameters:**
   - `schoolId` (number): Filter by school ID
   - `isActive` (boolean): Filter by active status (true/false)
   - `search` (string): Search by email
-- **Example Request:** `GET /auth/school-admins?schoolId=1&isActive=true`
+  - `limit` (number, optional): Items per page. Default: 10, Max: 100
+  - `page` (number, optional): Page number. Default: 1
+- **Example Request:** `GET /auth/school-admins?schoolId=1&isActive=true&limit=20&page=1`
 - **Response (Success):**
   ```json
   {
-    "total": 2,
-    "admins": [
+    "data": [
       {
         "id": 2,
         "email": "admin1@school.com",
@@ -380,7 +398,13 @@ router.get(
         "isActive": true,
         "createdAt": "2026-01-11T12:00:00Z"
       }
-    ]
+    ],
+    "pagination": {
+      "total": 12,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 2
+    }
   }
   ```
 - **Response (Failure):**
@@ -470,32 +494,59 @@ router.get(
 - **Endpoint:** `GET /schools/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
-- **Description:** Retrieve all schools with their admin email and ImageKit configuration
-- **Query Parameters:** None
+- **Description:** Retrieve all schools with their admin email, profile information, ImageKit configuration, and pagination.
+- **Query Parameters:**
+  - `limit` (number, optional): Items per page. Default: 10, Max: 100
+  - `page` (number, optional): Page number. Default: 1
+- **Example Request:** `GET /schools/?limit=20&page=1`
 - **Response (Success):**
   ```json
-  [
-    {
-      "id": 1,
-      "name": "ABC School",
-      "code": "ABC001",
-      "adminEmail": "admin@abcschool.com",
-      "imagekitPublicKey": "public_xTYabJQlSXddkvABKRZexz03xTU=",
-      "imagekitUrlEndpoint": "https://ik.imagekit.io/avvowijga",
-      "imagekitFolder": "schools/1",
-      "createdAt": "2026-01-10T12:00:00Z"
-    },
-    {
-      "id": 2,
-      "name": "XYZ School",
-      "code": "XYZ001",
-      "adminEmail": "admin@xyzschool.com",
-      "imagekitPublicKey": "public_aBcDefGhIjKlMnOpQrStUvWxYz=",
-      "imagekitUrlEndpoint": "https://ik.imagekit.io/xyzschool",
-      "imagekitFolder": "schools/2",
-      "createdAt": "2026-01-11T12:00:00Z"
+  {
+    "data": [
+      {
+        "id": 1,
+        "name": "ABC School",
+        "code": "ABC001",
+        "adminEmail": "admin@abcschool.com",
+        "description": "A premier educational institution",
+        "address": "123 Main Street, City",
+        "contactNumber": "+1234567890",
+        "affiliationNumber": "AFFIL123",
+        "registrationNumber": "REG001",
+        "registrationDetails": "Central Board of Secondary Education",
+        "authoritySignatureUrl": "https://ik.imagekit.io/...",
+        "principalSignatureUrl": "https://ik.imagekit.io/...",
+        "imagekitPublicKey": "public_xTYabJQlSXddkvABKRZexz03xTU=",
+        "imagekitUrlEndpoint": "https://ik.imagekit.io/avvowijga",
+        "imagekitFolder": "schools/1",
+        "createdAt": "2026-01-10T12:00:00Z"
+      },
+      {
+        "id": 2,
+        "name": "XYZ School",
+        "code": "XYZ001",
+        "adminEmail": "admin@xyzschool.com",
+        "description": "Excellence in education",
+        "address": "456 Oak Avenue, Town",
+        "contactNumber": "+0987654321",
+        "affiliationNumber": "AFFIL456",
+        "registrationNumber": "REG002",
+        "registrationDetails": "International Baccalaureate",
+        "authoritySignatureUrl": "https://ik.imagekit.io/...",
+        "principalSignatureUrl": "https://ik.imagekit.io/...",
+        "imagekitPublicKey": "public_aBcDefGhIjKlMnOpQrStUvWxYz=",
+        "imagekitUrlEndpoint": "https://ik.imagekit.io/xyzschool",
+        "imagekitFolder": "schools/2",
+        "createdAt": "2026-01-11T12:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 25,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 3
     }
-  ]
+  }
   ```
 
 ---
@@ -628,25 +679,49 @@ router.get(
 - **Endpoint:** `GET /classes/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, TEACHER
-- **Description:** Retrieve all classes. SCHOOL_ADMIN and TEACHER see only their school's classes.
-- **Query Parameters:** None
+- **Description:** Retrieve all classes with pagination. SCHOOL_ADMIN and TEACHER see only their school's classes.
+- **Query Parameters:**
+  - `limit` (number, optional): Items per page. Default: 10, Max: 100
+  - `page` (number, optional): Page number. Default: 1
+- **Example Request:** `GET /classes/?limit=20&page=1`
 - **Response (Success):**
   ```json
-  [
-    {
-      "id": 1,
-      "name": "Class 10-A",
-      "schoolId": 1,
-      "sections": [
-        {
-          "id": 1,
-          "name": "Section A",
-          "classId": 1
-        }
-      ],
-      "createdAt": "2026-01-10T12:00:00Z"
+  {
+    "data": [
+      {
+        "id": 1,
+        "name": "Class 10-A",
+        "schoolId": 1,
+        "sections": [
+          {
+            "id": 1,
+            "name": "Section A",
+            "classId": 1
+          }
+        ],
+        "createdAt": "2026-01-10T12:00:00Z"
+      },
+      {
+        "id": 2,
+        "name": "Class 10-B",
+        "schoolId": 1,
+        "sections": [
+          {
+            "id": 2,
+            "name": "Section B",
+            "classId": 2
+          }
+        ],
+        "createdAt": "2026-01-10T12:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 15,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 2
     }
-  ]
+  }
   ```
 
 ---
