@@ -366,11 +366,23 @@ export const getVendorSchools = async (
         address: true,
         contactNumber: true,
         adminEmail: true,
+        _count: {
+          select: {
+            students: true,
+          },
+        },
       },
     });
 
+    // Add totalStudents to each school
+    const schoolsWithStudentCount = schools.map((school: any) => ({
+      ...school,
+      totalStudents: school._count.students,
+      _count: undefined,
+    }));
+
     return res.json({
-      data: schools,
+      data: schoolsWithStudentCount,
       vendorInfo: {
         vendorId: Number(vendorId),
         vendorEmail: vendor.email,

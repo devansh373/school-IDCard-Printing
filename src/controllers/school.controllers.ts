@@ -75,13 +75,25 @@ export const getSchools = async (req: Request, res: Response) => {
           imagekitUrlEndpoint: true,
           imagekitFolder: true,
           createdAt: true,
+          _count: {
+            select: {
+              students: true,
+            },
+          },
         },
       }),
       prisma.school.count({ where }),
     ]);
 
+    // Add totalStudents to each school
+    const schoolsWithStudentCount = schools.map((school: any) => ({
+      ...school,
+      totalStudents: school._count.students,
+      _count: undefined,
+    }));
+
     return res.json({
-      data: schools,
+      data: schoolsWithStudentCount,
       pagination: {
         total,
         page: pageNum,
@@ -127,6 +139,11 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
         imagekitUrlEndpoint: true,
         imagekitFolder: true,
         createdAt: true,
+        _count: {
+          select: {
+            students: true,
+          },
+        },
       },
     });
 
@@ -134,7 +151,13 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    return res.json(school);
+    const schoolWithStudentCount = {
+      ...school,
+      totalStudents: (school as any)._count.students,
+      _count: undefined,
+    };
+
+    return res.json(schoolWithStudentCount);
   } catch (error: any) {
     console.error("GET SCHOOL ERROR:", error);
     return res.status(500).json({
