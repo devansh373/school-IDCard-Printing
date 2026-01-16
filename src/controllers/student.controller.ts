@@ -284,89 +284,174 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
 };
 
 
+// export const uploadStudentPhoto = async (
+//   req: AuthRequest,
+//   res: Response
+// ) => {
+//   const studentId = Number(req.params.id);
+
+//   if (!req.file) {
+//     return res.status(400).json({ message: "Image file required" });
+//   }
+
+//   const student = await prisma.student.findUnique({
+//     where: { id: studentId },
+//   });
+
+//   if (!student) {
+//     return res.status(404).json({ message: "Student not found" });
+//   }
+
+//   // 🔐 RBAC: same school
+//   if (
+//     req.user?.role === "SCHOOL_ADMIN" &&
+//     student.schoolId !== req.user.schoolId
+//   ) {
+//     return res.status(403).json({ message: "Forbidden" });
+//   }
+
+//   // 🔍 Fetch school ImageKit config
+//   const school = await prisma.school.findUnique({
+//     where: { id: student.schoolId },
+//     select: {
+//       imagekitPublicKey: true,
+//       imagekitPrivateKey: true,
+//       imagekitUrlEndpoint: true,
+//       imagekitFolder: true,
+//     },
+//   });
+
+//   // 🚫 Block upload if ImageKit not configured
+//   if (
+//     !school?.imagekitPublicKey ||
+//     !school?.imagekitPrivateKey ||
+//     !school?.imagekitUrlEndpoint
+//   ) {
+//     return res.status(400).json({
+//       message:
+//         "Image upload is disabled. Please configure ImageKit credentials for this school.",
+//     });
+//   }
+
+//   // ✅ Create ImageKit instance (per school)
+//   const imagekit = new ImageKit({
+//     publicKey: school.imagekitPublicKey,
+//     privateKey: school.imagekitPrivateKey,
+//     urlEndpoint: school.imagekitUrlEndpoint,
+//   });
+
+//   // 📁 Folder structure (clean & isolated)
+//   const folder =
+//     school.imagekitFolder ??
+//     `/schools/${student.schoolId}/students`;
+
+//   // 📤 Upload
+//   const uploadResult = await imagekit.upload({
+//     file: req.file.buffer,
+//     fileName: `student_${studentId}.jpg`,
+//     folder,
+//     useUniqueFileName: true,
+//   });
+
+//   // 💾 Save URL in DB
+//   await prisma.student.update({
+//     where: { id: studentId },
+//     data: {
+//       photoUrl: uploadResult.url,
+//       photoStatus: "UPLOADED",
+//     },
+//   });
+
+//   return res.json({
+//     message: "Photo uploaded successfully",
+//     photoUrl: uploadResult.url,
+//   });
+// };
+
 export const uploadStudentPhoto = async (
   req: AuthRequest,
   res: Response
 ) => {
-  const studentId = Number(req.params.id);
+  try {
+    const studentId = Number(req.params.id);
 
-  if (!req.file) {
-    return res.status(400).json({ message: "Image file required" });
-  }
+    if (!req.file) {
+      return res.status(400).json({ message: "Image file required" });
+    }
 
-  const student = await prisma.student.findUnique({
-    where: { id: studentId },
-  });
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+    });
 
-  if (!student) {
-    return res.status(404).json({ message: "Student not found" });
-  }
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
-  // 🔐 RBAC: same school
-  if (
-    req.user?.role === "SCHOOL_ADMIN" &&
-    student.schoolId !== req.user.schoolId
-  ) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
+    if (
+      req.user?.role === "SCHOOL_ADMIN" &&
+      student.schoolId !== req.user.schoolId
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
 
-  // 🔍 Fetch school ImageKit config
-  const school = await prisma.school.findUnique({
-    where: { id: student.schoolId },
-    select: {
-      imagekitPublicKey: true,
-      imagekitPrivateKey: true,
-      imagekitUrlEndpoint: true,
-      imagekitFolder: true,
-    },
-  });
+    const school = await prisma.school.findUnique({
+      where: { id: student.schoolId },
+      select: {
+        imagekitPublicKey: true,
+        imagekitPrivateKey: true,
+        imagekitUrlEndpoint: true,
+        imagekitFolder: true,
+      },
+    });
 
-  // 🚫 Block upload if ImageKit not configured
-  if (
-    !school?.imagekitPublicKey ||
-    !school?.imagekitPrivateKey ||
-    !school?.imagekitUrlEndpoint
-  ) {
-    return res.status(400).json({
-      message:
-        "Image upload is disabled. Please configure ImageKit credentials for this school.",
+    if (
+      !school?.imagekitPublicKey ||
+      !school?.imagekitPrivateKey ||
+      !school?.imagekitUrlEndpoint
+    ) {
+      return res.status(400).json({
+        message:
+          "Image upload is disabled. Please configure ImageKit credentials for this school.",
+      });
+    }
+
+    const imagekit = new ImageKit({
+      publicKey: school.imagekitPublicKey,
+      privateKey: school.imagekitPrivateKey,
+      urlEndpoint: school.imagekitUrlEndpoint,
+    });
+
+    const folder =
+      school.imagekitFolder ??
+      `/schools/${student.schoolId}/students`;
+
+    const uploadResult = await imagekit.upload({
+      file: req.file.buffer,
+      fileName: `student_${studentId}.jpg`,
+      folder,
+      useUniqueFileName: true,
+    });
+
+    await prisma.student.update({
+      where: { id: studentId },
+      data: {
+        photoUrl: uploadResult.url,
+        photoStatus: "UPLOADED",
+      },
+    });
+
+    return res.json({
+      message: "Photo uploaded successfully",
+      photoUrl: uploadResult.url,
+    });
+  } catch (error: any) {
+    console.error("UPLOAD PHOTO ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to upload student photo",
     });
   }
-
-  // ✅ Create ImageKit instance (per school)
-  const imagekit = new ImageKit({
-    publicKey: school.imagekitPublicKey,
-    privateKey: school.imagekitPrivateKey,
-    urlEndpoint: school.imagekitUrlEndpoint,
-  });
-
-  // 📁 Folder structure (clean & isolated)
-  const folder =
-    school.imagekitFolder ??
-    `/schools/${student.schoolId}/students`;
-
-  // 📤 Upload
-  const uploadResult = await imagekit.upload({
-    file: req.file.buffer,
-    fileName: `student_${studentId}.jpg`,
-    folder,
-    useUniqueFileName: true,
-  });
-
-  // 💾 Save URL in DB
-  await prisma.student.update({
-    where: { id: studentId },
-    data: {
-      photoUrl: uploadResult.url,
-      photoStatus: "UPLOADED",
-    },
-  });
-
-  return res.json({
-    message: "Photo uploaded successfully",
-    photoUrl: uploadResult.url,
-  });
 };
+
 
 /**
  * Update student details
