@@ -129,6 +129,98 @@ export async function bulkGenerateIdCards(
 
 
 
+// export async function getIdCardPreviews(req: any, res: any) {
+//   const {
+//     page = 1,
+//     limit = 20,
+//     search,
+//     classId,
+//     sectionId,
+//     status,
+//   } = req.query;
+
+//   const take = Math.min(Number(limit), 50);
+//   const skip = (Number(page) - 1) * take;
+
+//   /**
+//    * 🔎 WHERE CLAUSE
+//    */
+//   const where: any = {};
+
+//   // 🔹 class filter
+//   if (classId) {
+//     where.classId = Number(classId);
+//   }
+
+//   // 🔹 section filter
+//   if (sectionId) {
+//     where.sectionId = Number(sectionId);
+//   }
+
+//   // 🔹 search
+//   if (search) {
+//     where.OR = [
+//       { firstName: { contains: search, mode: "insensitive" } },
+//       { lastName: { contains: search, mode: "insensitive" } },
+//       { enrollmentNumber: { contains: search, mode: "insensitive" } },
+//       { rollNo: { contains: search, mode: "insensitive" } },
+//     ];
+//   }
+
+//   // 🔹 idCard relation filter (IMPORTANT FIX)
+//   if (status) {
+//     where.idCard = {
+//       is: {
+//         status,
+//       },
+//     };
+//   } else {
+//     // default: only students having id cards
+//     where.idCard = {
+//       isNot: null,
+//     };
+//   }
+
+//   /**
+//    * 📦 QUERY
+//    */
+//   const [total, students] = await Promise.all([
+//     prisma.student.count({ where }),
+//     prisma.student.findMany({
+//       where,
+//       skip,
+//       take,
+//       orderBy: { firstName: "asc" },
+//       include: {
+//         class: true,
+//         section: true,
+//         idCard: true,
+//       },
+//     }),
+//   ]);
+
+//   /**
+//    * 🎯 RESPONSE
+//    */
+//   const data = students.map((s) => ({
+//     studentId: s.id,
+//     name: `${s.firstName} ${s.lastName ?? ""}`.trim(),
+//     enrollmentNumber: s.enrollmentNumber,
+//     rollNo: s.rollNo,
+//     class: s.class.name,
+//     section: s.section.name,
+//     previewUrl: s.idCard?.previewUrl,
+//     status: s.idCard?.status,
+//   }));
+
+//   return res.json({
+//     page: Number(page),
+//     limit: take,
+//     total,
+//     data,
+//   });
+// }
+
 export async function getIdCardPreviews(req: any, res: any) {
   const {
     page = 1,
@@ -139,13 +231,25 @@ export async function getIdCardPreviews(req: any, res: any) {
     status,
   } = req.query;
 
+  // 🔐 School scoping
+  const schoolId =
+    req.user?.role === "SUPER_ADMIN"
+      ? Number(req.query.schoolId)
+      : req.user?.schoolId;
+
+  if (!schoolId) {
+    return res.status(400).json({ message: "schoolId is required" });
+  }
+
   const take = Math.min(Number(limit), 50);
   const skip = (Number(page) - 1) * take;
 
   /**
    * 🔎 WHERE CLAUSE
    */
-  const where: any = {};
+  const where: any = {
+    schoolId, // ✅ MAIN FIX
+  };
 
   // 🔹 class filter
   if (classId) {
@@ -167,7 +271,7 @@ export async function getIdCardPreviews(req: any, res: any) {
     ];
   }
 
-  // 🔹 idCard relation filter (IMPORTANT FIX)
+  // 🔹 idCard relation filter
   if (status) {
     where.idCard = {
       is: {

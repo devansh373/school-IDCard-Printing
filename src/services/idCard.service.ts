@@ -62,8 +62,13 @@ export async function getOrCreateIdCardPreview(studentId: number) {
   });
 
   if (!student ) {
-    throw new Error("Student not found or photo missing");
+    throw new Error("Student not found");
   }
+  // ✅ 🚫 HARD STOP: photo is mandatory
+  if (!student.photoUrl) {
+    throw new Error("Student photo is required to generate ID card");
+  }
+
 
   // 2️⃣ If preview already exists → reuse
   if (student.idCard?.status === "READY" && student.idCard.previewUrl) {

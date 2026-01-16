@@ -3,6 +3,7 @@ import type { AuthRequest } from "../middlewares/authenticate.middleware.js";
 import {prisma} from "../db.js";
 import  { PrintStatus } from "../generated/prisma/enums.js";
 import ImageKit from "imagekit";
+import { getOrCreateIdCardPreview } from "../services/idCard.service.js";
 
 // import { imagekit } from "../config/imagekit.js";
 
@@ -368,6 +369,90 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
 //   });
 // };
 
+// export const uploadStudentPhoto = async (
+//   req: AuthRequest,
+//   res: Response
+// ) => {
+//   try {
+//     const studentId = Number(req.params.id);
+
+//     if (!req.file) {
+//       return res.status(400).json({ message: "Image file required" });
+//     }
+
+//     const student = await prisma.student.findUnique({
+//       where: { id: studentId },
+//     });
+
+//     if (!student) {
+//       return res.status(404).json({ message: "Student not found" });
+//     }
+
+//     if (
+//       req.user?.role === "SCHOOL_ADMIN" &&
+//       student.schoolId !== req.user.schoolId
+//     ) {
+//       return res.status(403).json({ message: "Forbidden" });
+//     }
+
+//     const school = await prisma.school.findUnique({
+//       where: { id: student.schoolId },
+//       select: {
+//         imagekitPublicKey: true,
+//         imagekitPrivateKey: true,
+//         imagekitUrlEndpoint: true,
+//         imagekitFolder: true,
+//       },
+//     });
+
+//     if (
+//       !school?.imagekitPublicKey ||
+//       !school?.imagekitPrivateKey ||
+//       !school?.imagekitUrlEndpoint
+//     ) {
+//       return res.status(400).json({
+//         message:
+//           "Image upload is disabled. Please configure ImageKit credentials for this school.",
+//       });
+//     }
+
+//     const imagekit = new ImageKit({
+//       publicKey: school.imagekitPublicKey,
+//       privateKey: school.imagekitPrivateKey,
+//       urlEndpoint: school.imagekitUrlEndpoint,
+//     });
+
+//     const folder =
+//       school.imagekitFolder ??
+//       `/schools/${student.schoolId}/students`;
+
+//     const uploadResult = await imagekit.upload({
+//       file: req.file.buffer,
+//       fileName: `student_${studentId}.jpg`,
+//       folder,
+//       useUniqueFileName: true,
+//     });
+
+//     await prisma.student.update({
+//       where: { id: studentId },
+//       data: {
+//         photoUrl: uploadResult.url,
+//         photoStatus: "UPLOADED",
+//       },
+//     });
+
+//     return res.json({
+//       message: "Photo uploaded successfully",
+//       photoUrl: uploadResult.url,
+//     });
+//   } catch (error: any) {
+//     console.error("UPLOAD PHOTO ERROR:", error);
+//     return res.status(500).json({
+//       message: error.message || "Failed to upload student photo",
+//     });
+//   }
+// };
+
 export const uploadStudentPhoto = async (
   req: AuthRequest,
   res: Response
@@ -432,6 +517,7 @@ export const uploadStudentPhoto = async (
       useUniqueFileName: true,
     });
 
+    // ✅ 1️⃣ Save photo
     await prisma.student.update({
       where: { id: studentId },
       data: {
@@ -440,8 +526,21 @@ export const uploadStudentPhoto = async (
       },
     });
 
+    // ✅ 2️⃣ AUTO-GENERATE ID CARD (NON-BLOCKING)
+    getOrCreateIdCardPreview(studentId)
+      .then(() => {
+        console.log(`ID card generated for student ${studentId}`);
+      })
+      .catch((err) => {
+        console.error(
+          `ID card generation failed for student ${studentId}`,
+          err
+        );
+      });
+
+    // ✅ 3️⃣ Respond immediately
     return res.json({
-      message: "Photo uploaded successfully",
+      message: "Photo uploaded successfully. ID card generation started.",
       photoUrl: uploadResult.url,
     });
   } catch (error: any) {
