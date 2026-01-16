@@ -233,13 +233,14 @@ export async function getIdCardPreviews(req: any, res: any) {
 
   // 🔐 School scoping
   const schoolId =
-    req.user?.role === "SUPER_ADMIN"
+    req.user?.role === "SUPER_ADMIN"|| req.user?.role === "VENDOR"
       ? Number(req.query.schoolId)
       : req.user?.schoolId;
+      console.log(schoolId,req.user?.role)
 
-  if (!schoolId) {
-    return res.status(400).json({ message: "schoolId is required" });
-  }
+  // if (!schoolId) {
+  //   return res.status(400).json({ message: "schoolId is required" });
+  // }
 
   const take = Math.min(Number(limit), 50);
   const skip = (Number(page) - 1) * take;
