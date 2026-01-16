@@ -18,6 +18,7 @@ model School {
   name       String
   code       String  @unique
   adminEmail String?
+  logoUrl    String?
  
   // Optional school profile fields
   description           String?
@@ -149,7 +150,6 @@ enum UserRole {
 }
 
 enum VendorStatus {
-  ONBOARDING
   ACTIVE
   INACTIVE
 }

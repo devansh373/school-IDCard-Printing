@@ -51,7 +51,7 @@ export const registerVendor = async (
         vendorName,
         phoneNumber,
         location,
-        vendorStatus: "ONBOARDING",
+        vendorStatus: "ACTIVE",
         mustChangePassword: true,
         isActive: true,
       },
