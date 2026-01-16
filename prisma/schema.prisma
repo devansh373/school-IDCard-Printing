@@ -19,7 +19,7 @@ model School {
   code       String  @unique
   adminEmail String?
   logoUrl    String?
- 
+
   // Optional school profile fields
   description           String?
   address               String?
@@ -38,12 +38,10 @@ model School {
 
   classes  Class[]
   students Student[]
-  users     User[]
+  users    User[]
 
   createdAt DateTime @default(now())
 }
-
-
 
 model Class {
   id       Int    @id @default(autoincrement())
@@ -78,8 +76,8 @@ enum PrintStatus {
 }
 
 model Student {
-  id               Int    @id @default(autoincrement())
-  enrollmentNumber String @unique
+  id               Int     @id @default(autoincrement())
+  enrollmentNumber String  @unique
   rollNo           String?
   admissionNo      String? @unique
 
@@ -89,25 +87,25 @@ model Student {
 
   dateOfBirth DateTime?
 
-  fatherName  String?
-  motherName  String?
+  fatherName String?
+  motherName String?
 
   currentAddress String?
   remarks        String?
 
-  mobileNo   String?
-  email      String?
+  mobileNo String?
+  email    String?
 
   gender   String?
   religion String?
 
-  aadhar    String?
-  aparId      String?
-  uniqueId  String?
+  aadhar   String?
+  aparId   String?
+  uniqueId String?
 
-  pan       String?
+  pan        String?
   bloodGroup String?
-  houseName String?
+  houseName  String?
 
   schoolId  Int
   classId   Int
@@ -130,17 +128,17 @@ enum IdCardStatus {
 }
 
 model IdCard {
-  id         Int          @id @default(autoincrement())
-  studentId  Int          @unique
-  previewUrl String?
-  status     IdCardStatus @default(PENDING)
+  id        Int          @id @default(autoincrement())
+  studentId Int          @unique
+  frontUrl  String?
+  backUrl   String?
+  status    IdCardStatus @default(PENDING)
 
-  student    Student      @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
 
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
-
 
 enum UserRole {
   SUPER_ADMIN

@@ -19,22 +19,20 @@
 //     return res.status(404).json({ message: "Student or photo not found" });
 //   }
 
-//   const previewUrl = await generateIdCardPreview({
+//   const frontUrl = await generateIdCardPreview({
 //     name: student.firstName + " " + student.lastName,
 //     className: student.class.name,
 //     sectionName: student.section.name,
 //     photoUrl: student.photoUrl,
 //   });
 
-//   res.json({ previewUrl });
+//   res.json({ frontUrl });
 // };
-
 
 import type { Request, Response } from "express";
 import { getOrCreateIdCardPreview } from "../services/idCard.service.js";
 import { generateIdCardPdf } from "../services/idCardPdf.service.js";
 import { prisma } from "../db.js";
-
 
 export async function previewIdCard(req: Request, res: Response) {
   try {
@@ -44,16 +42,15 @@ export async function previewIdCard(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid studentId" });
     }
 
-    const previewUrl = await getOrCreateIdCardPreview(studentId);
+    const side = (req.query.side as any) === "BACK" ? "BACK" : "FRONT";
+    console.log(side);
+    const url = await getOrCreateIdCardPreview(studentId, side);
 
-    res.json({ previewUrl });
+    res.json({ url });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 }
-
-
-
 
 export async function printIdCards(req: Request, res: Response) {
   try {
@@ -69,13 +66,9 @@ export async function printIdCards(req: Request, res: Response) {
   }
 }
 
-
-
-export async function bulkGenerateIdCards(
-  req: any,
-  res: any
-) {
+export async function bulkGenerateIdCards(req: any, res: any) {
   const { studentIds } = req.body;
+  const side = (req.query.side as any) === "BACK" ? "BACK" : "FRONT";
 
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
     return res.status(400).json({
@@ -101,7 +94,7 @@ export async function bulkGenerateIdCards(
    */
   for (const studentId of studentIds) {
     try {
-      const url = await getOrCreateIdCardPreview(studentId);
+      const url = await getOrCreateIdCardPreview(studentId, side);
 
       if (url) {
         generated++;
@@ -125,9 +118,6 @@ export async function bulkGenerateIdCards(
     errors,
   });
 }
-
-
-
 
 // export async function getIdCardPreviews(req: any, res: any) {
 //   const {
@@ -209,7 +199,7 @@ export async function bulkGenerateIdCards(
 //     rollNo: s.rollNo,
 //     class: s.class.name,
 //     section: s.section.name,
-//     previewUrl: s.idCard?.previewUrl,
+//     frontUrl: s.idCard?.frontUrl,
 //     status: s.idCard?.status,
 //   }));
 
@@ -233,10 +223,10 @@ export async function getIdCardPreviews(req: any, res: any) {
 
   // 🔐 School scoping
   const schoolId =
-    req.user?.role === "SUPER_ADMIN"|| req.user?.role === "VENDOR"
+    req.user?.role === "SUPER_ADMIN" || req.user?.role === "VENDOR"
       ? Number(req.query.schoolId)
       : req.user?.schoolId;
-      console.log(schoolId,req.user?.role)
+  console.log(schoolId, req.user?.role);
 
   // if (!schoolId) {
   //   return res.status(400).json({ message: "schoolId is required" });
@@ -314,7 +304,8 @@ export async function getIdCardPreviews(req: any, res: any) {
     rollNo: s.rollNo,
     class: s.class.name,
     section: s.section.name,
-    previewUrl: s.idCard?.previewUrl,
+    frontUrl: s.idCard?.frontUrl,
+    backUrl: s.idCard?.backUrl,
     status: s.idCard?.status,
   }));
 
@@ -325,4 +316,3 @@ export async function getIdCardPreviews(req: any, res: any) {
     data,
   });
 }
-

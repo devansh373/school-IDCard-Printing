@@ -527,7 +527,18 @@ export const uploadStudentPhoto = async (
     });
 
     // ✅ 2️⃣ AUTO-GENERATE ID CARD (NON-BLOCKING)
-    getOrCreateIdCardPreview(studentId)
+    getOrCreateIdCardPreview(studentId,"FRONT")
+      .then(() => {
+        console.log(`ID card generated for student ${studentId}`);
+      })
+      .catch((err) => {
+        console.error(
+          `ID card generation failed for student ${studentId}`,
+          err
+        );
+      });
+
+    getOrCreateIdCardPreview(studentId,"BACK")
       .then(() => {
         console.log(`ID card generated for student ${studentId}`);
       })

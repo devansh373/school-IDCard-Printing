@@ -301,7 +301,7 @@
 // /**
 //  * DOB formatter
 //  */
-// 
+//
 // }
 
 // export async function generateIdCardPdf(
@@ -504,14 +504,14 @@
 //      */
 
 // const imageBuffer = await fetchImageAsBuffer(
-//   student.idCard.previewUrl!
+//   student.idCard.frontUrl!
 // );
 
 // doc.image(imageBuffer, x, y, {
 //   width: CARD_PDF_WIDTH,
 // });
 
-//     // doc.image(student.idCard.previewUrl!, x, y, {
+//     // doc.image(student.idCard.frontUrl!, x, y, {
 //     //   width: CARD_PDF_WIDTH,
 //     // });
 
@@ -565,6 +565,8 @@ export async function generateIdCardPdf(req: any, res: any) {
     throw new Error("Maximum 100 students allowed");
   }
 
+  const side: "FRONT" | "BACK" = req.query.side === "BACK" ? "BACK" : "FRONT";
+
   const config = PAPER_CONFIG[paper];
 
   const PAGE_WIDTH = config.width;
@@ -574,8 +576,8 @@ export async function generateIdCardPdf(req: any, res: any) {
   const ROWS_PER_PAGE = config.rowsPerPage;
   const CARDS_PER_PAGE = CARDS_PER_ROW * ROWS_PER_PAGE;
 
-  const CARD_PDF_WIDTH =  config.CARD_WIDTH * config.SCALE;
-  const CARD_PDF_HEIGHT = config.CARD_HEIGHT *config.SCALE;
+  const CARD_PDF_WIDTH = config.CARD_WIDTH * config.SCALE;
+  const CARD_PDF_HEIGHT = config.CARD_HEIGHT * config.SCALE;
 
   const students = await prisma.student.findMany({
     where: {
@@ -596,7 +598,10 @@ export async function generateIdCardPdf(req: any, res: any) {
   });
 
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", "inline; filename=id-cards.pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename=id-cards-${side.toLowerCase()}.pdf`
+  );
 
   doc.pipe(res);
 
@@ -620,16 +625,29 @@ export async function generateIdCardPdf(req: any, res: any) {
     const row = Math.floor(indexInPage / CARDS_PER_ROW);
     const col = indexInPage % CARDS_PER_ROW;
 
-    const x = START_X + col * (CARD_PDF_WIDTH + config.GAP_X);
+    // 🔥 For BACK side, we mirror the columns so they align with fronts when flipped
+    const drawCol = side === "BACK" ? CARDS_PER_ROW - 1 - col : col;
+
+    const x = START_X + drawCol * (CARD_PDF_WIDTH + config.GAP_X);
     const y = START_Y + row * (CARD_PDF_HEIGHT + config.GAP_Y);
 
-    const imageBuffer = await fetchImageAsBuffer(student.idCard!.previewUrl!);
-// doc.rect(x, y, CARD_PDF_WIDTH, CARD_PDF_HEIGHT).stroke("black");
-    doc.image(imageBuffer, x, y, {
-      width: CARD_PDF_WIDTH,
-    });
+    const imageUrl =
+      side === "FRONT" ? student.idCard?.frontUrl : student.idCard?.backUrl;
 
-    index++;
+    if (imageUrl) {
+      try {
+        const imageBuffer = await fetchImageAsBuffer(imageUrl);
+        doc.image(imageBuffer, x, y, {
+          width: CARD_PDF_WIDTH,
+        });
+        index++;
+      } catch (err) {
+        console.error(
+          `Failed to fetch image for student ${student.id}: ${imageUrl}`,
+          err
+        );
+      }
+    }
   }
 
   doc.end();

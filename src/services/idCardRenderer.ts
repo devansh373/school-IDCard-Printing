@@ -553,6 +553,149 @@ export interface StudentCardData {
 
 
 
+// export interface StudentCardData {
+//   name: string;
+//   className: string;
+//   sectionName: string;
+//   fatherName: string;
+//   dob: string;
+//   address: string;
+//   mobile: string;
+//   bloodGroup: string;
+//   photoUrl: string;
+// }
+
+// export async function renderIdCardCanvas(
+//   data: StudentCardData, WIDTH = 410, HEIGHT = 700
+// ) {
+// //   const WIDTH = 410;
+// //   const HEIGHT = 700;
+
+//   const canvas = createCanvas(WIDTH, HEIGHT);
+//   const ctx = canvas.getContext("2d");
+
+//   /**
+//    * Background
+//    */
+//   ctx.fillStyle = "#ffffff";
+//   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+//   const bg = await loadImage("src/templates/id-card-bg-2.jpg");
+//   ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
+
+//   /**
+//    * Photo
+//    */
+//   const PHOTO_W = 130;
+//   const PHOTO_H = 200;
+//   const PHOTO_X = (WIDTH - PHOTO_W) / 2;
+//   const PHOTO_Y = 120;
+
+//   const photo = await loadImage(data.photoUrl);
+
+//   ctx.save();
+//   ctx.beginPath();
+//   ctx.roundRect(PHOTO_X, PHOTO_Y, PHOTO_W, PHOTO_H, 12);
+//   ctx.clip();
+//   ctx.drawImage(photo, PHOTO_X, PHOTO_Y, PHOTO_W, PHOTO_H);
+//   ctx.restore();
+
+//   let currentY = PHOTO_Y + PHOTO_H + 30;
+
+//   /**
+//    * Name
+//    */
+//   ctx.fillStyle = "#0B4A7B";
+//   ctx.font = "bold 32px Arial";
+//   ctx.textAlign = "center";
+//   ctx.fillText(data.name.toUpperCase(), WIDTH / 2, currentY);
+
+//   currentY += 42;
+
+//   /**
+//    * Class / Section
+//    */
+//   ctx.fillStyle = "#333";
+//   ctx.font = "20px Arial";
+//   ctx.fillText(
+//     `Std: ${data.className} (${data.sectionName})`,
+//     WIDTH / 2,
+//     currentY
+//   );
+
+//   currentY += 36;
+
+//   /**
+//    * Details layout
+//    */
+//   ctx.textAlign = "left";
+
+//   const LABEL_X = 50;
+//   const VALUE_X = 190;
+//   const MAX_TEXT_WIDTH = WIDTH - VALUE_X - 20;
+
+//   function drawWrappedText(
+//     text: string,
+//     x: number,
+//     y: number,
+//     maxWidth: number,
+//     lineHeight: number
+//   ) {
+//     const words = text.split(" ");
+//     let line = "";
+//     let drawY = y;
+
+//     for (let i = 0; i < words.length; i++) {
+//       const testLine = line + words[i] + " ";
+//       const testWidth = ctx.measureText(testLine).width;
+
+//       if (testWidth > maxWidth && i > 0) {
+//         ctx.fillText(line, x, drawY);
+//         line = words[i] + " ";
+//         drawY += lineHeight;
+//       } else {
+//         line = testLine;
+//       }
+//     }
+
+//     ctx.fillText(line, x, drawY);
+//     return drawY + lineHeight;
+//   }
+
+//   function drawRow(label: string, value: string) {
+//     if (!value) return;
+//     if (currentY > HEIGHT - 30) return;
+
+//     ctx.fillStyle = "#C0392B";
+//     ctx.font = "bold 18px Arial";
+//     ctx.fillText(label, LABEL_X, currentY);
+
+//     ctx.fillStyle = "#1F7A7A";
+//     ctx.font = "18px Arial";
+
+//     currentY = drawWrappedText(
+//       value,
+//       VALUE_X,
+//       currentY,
+//       MAX_TEXT_WIDTH,
+//       24
+//     );
+
+//     currentY += 6;
+//   }
+
+//   drawRow("Father Name", data.fatherName);
+//   drawRow("DOB", data.dob);
+//   drawRow("Address", data.address);
+//   drawRow("Mobile", data.mobile);
+//   drawRow("Blood Group", data.bloodGroup);
+
+//   return canvas;
+// }
+
+
+
+
 export interface StudentCardData {
   name: string;
   className: string;
@@ -565,27 +708,42 @@ export interface StudentCardData {
   photoUrl: string;
 }
 
-export async function renderIdCardCanvas(
-  data: StudentCardData, WIDTH = 410, HEIGHT = 700
-) {
-//   const WIDTH = 410;
-//   const HEIGHT = 700;
+export type CardSide = "FRONT" | "BACK";
 
+export async function renderIdCardCanvas(
+  data: StudentCardData,
+  side: CardSide,
+  WIDTH = 410,
+  HEIGHT = 700
+) {
   const canvas = createCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext("2d");
 
-  /**
-   * Background
-   */
+  if (side === "FRONT") {
+    await renderFront(ctx, data, WIDTH, HEIGHT);
+  } else {
+    await renderBack(ctx, data, WIDTH, HEIGHT);
+  }
+
+  return canvas;
+}
+
+/* =========================
+   FRONT SIDE
+========================= */
+
+async function renderFront(
+  ctx: CanvasRenderingContext2D,
+  data: StudentCardData,
+  WIDTH: number,
+  HEIGHT: number
+) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   const bg = await loadImage("src/templates/id-card-bg-2.jpg");
   ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
 
-  /**
-   * Photo
-   */
   const PHOTO_W = 130;
   const PHOTO_H = 200;
   const PHOTO_X = (WIDTH - PHOTO_W) / 2;
@@ -602,9 +760,6 @@ export async function renderIdCardCanvas(
 
   let currentY = PHOTO_Y + PHOTO_H + 30;
 
-  /**
-   * Name
-   */
   ctx.fillStyle = "#0B4A7B";
   ctx.font = "bold 32px Arial";
   ctx.textAlign = "center";
@@ -612,9 +767,6 @@ export async function renderIdCardCanvas(
 
   currentY += 42;
 
-  /**
-   * Class / Section
-   */
   ctx.fillStyle = "#333";
   ctx.font = "20px Arial";
   ctx.fillText(
@@ -624,11 +776,74 @@ export async function renderIdCardCanvas(
   );
 
   currentY += 36;
-
-  /**
-   * Details layout
-   */
   ctx.textAlign = "left";
+
+  drawDetails(ctx, data, WIDTH, HEIGHT, currentY);
+}
+
+/* =========================
+   BACK SIDE
+========================= */
+
+async function renderBack(
+  ctx: CanvasRenderingContext2D,
+  data: StudentCardData,
+  WIDTH: number,
+  HEIGHT: number
+) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  const bg = await loadImage("src/templates/id-card-bg.png");
+  ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
+
+  ctx.textAlign = "left";
+
+  let y = 140;
+  const LABEL_X = 40;
+  const VALUE_X = 190;
+
+  function row(label: string, value: string) {
+    if (!value) return;
+
+    ctx.fillStyle = "#000";
+    ctx.font = "bold 16px Arial";
+    ctx.fillText(label + " :", LABEL_X, y);
+
+    ctx.fillStyle = "#C0392B";
+    ctx.font = "16px Arial";
+    ctx.fillText(value, VALUE_X, y);
+
+    y += 30;
+  }
+
+  row("Blood Group", data.bloodGroup);
+  row("Contact No", data.mobile);
+  row("Father Name", data.fatherName);
+  row("Address", data.address);
+
+  ctx.textAlign = "center";
+  ctx.font = "12px Arial";
+  ctx.fillStyle = "#555";
+  ctx.fillText(
+    "If found please return to the school office",
+    WIDTH / 2,
+    HEIGHT - 40
+  );
+}
+
+/* =========================
+   SHARED DETAILS (FRONT)
+========================= */
+
+function drawDetails(
+  ctx: CanvasRenderingContext2D,
+  data: StudentCardData,
+  WIDTH: number,
+  HEIGHT: number,
+  startY: number
+) {
+  let currentY = startY;
 
   const LABEL_X = 50;
   const VALUE_X = 190;
@@ -663,8 +878,7 @@ export async function renderIdCardCanvas(
   }
 
   function drawRow(label: string, value: string) {
-    if (!value) return;
-    if (currentY > HEIGHT - 30) return;
+    if (!value || currentY > HEIGHT - 30) return;
 
     ctx.fillStyle = "#C0392B";
     ctx.font = "bold 18px Arial";
@@ -686,9 +900,4 @@ export async function renderIdCardCanvas(
 
   drawRow("Father Name", data.fatherName);
   drawRow("DOB", data.dob);
-  drawRow("Address", data.address);
-  drawRow("Mobile", data.mobile);
-  drawRow("Blood Group", data.bloodGroup);
-
-  return canvas;
 }

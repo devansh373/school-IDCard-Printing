@@ -13,8 +13,8 @@
 //   }
 
 //   // 2. If preview already exists → reuse
-//   if (student.idCard?.status === "READY" && student.idCard.previewUrl) {
-//     return student.idCard.previewUrl;
+//   if (student.idCard?.status === "READY" && student.idCard.frontUrl) {
+//     return student.idCard.frontUrl;
 //   }
 
 //   // 3. Ensure IdCard row exists
@@ -25,7 +25,7 @@
 //     }));
 
 //   // 4. Generate preview
-//   const previewUrl = await generateIdCardPreview({
+//   const frontUrl = await generateIdCardPreview({
 //     name: student.firstName + " " + student.lastName,
 //     className: student.class.name,     // adjust if needed
 //     sectionName: student.section.name, // adjust if needed
@@ -36,21 +36,23 @@
 //   await prisma.idCard.update({
 //     where: { id: idCard.id },
 //     data: {
-//       previewUrl,
+//       frontUrl,
 //       status: "READY"
 //     }
 //   });
 
-//   return previewUrl;
+//   return frontUrl;
 // }
 
-
 import { prisma } from "../db.js";
-import { renderIdCardCanvas } from "./idCardRenderer.js";
+import { renderIdCardCanvas, type CardSide } from "./idCardRenderer.js";
 import { imagekit } from "../config/imagekit.js";
 import { formatDOB } from "../utils/formatDob.js";
 
-export async function getOrCreateIdCardPreview(studentId: number) {
+export async function getOrCreateIdCardPreview(
+  studentId: number,
+  side: CardSide
+) {
   // 1️⃣ Fetch student + relations
   const student = await prisma.student.findUnique({
     where: { id: studentId },
@@ -61,7 +63,7 @@ export async function getOrCreateIdCardPreview(studentId: number) {
     },
   });
 
-  if (!student ) {
+  if (!student) {
     throw new Error("Student not found");
   }
   // ✅ 🚫 HARD STOP: photo is mandatory
@@ -69,10 +71,12 @@ export async function getOrCreateIdCardPreview(studentId: number) {
     throw new Error("Student photo is required to generate ID card");
   }
 
-
   // 2️⃣ If preview already exists → reuse
-  if (student.idCard?.status === "READY" && student.idCard.previewUrl) {
-    return student.idCard.previewUrl;
+  if (student.idCard?.status === "READY") {
+    if (side === "FRONT" && student.idCard.frontUrl)
+      return student.idCard.frontUrl;
+    if (side === "BACK" && student.idCard.backUrl)
+      return student.idCard.backUrl;
   }
 
   // 3️⃣ Ensure IdCard row exists
@@ -83,17 +87,20 @@ export async function getOrCreateIdCardPreview(studentId: number) {
     }));
 
   // 4️⃣ Render canvas (NEW renderer)
-  const canvas = await renderIdCardCanvas({
-    name: `${student.firstName} ${student.lastName}`,
-    className: student.class.name,
-    sectionName: student.section.name,
-    fatherName: student.fatherName ?? "",
-    dob: `${formatDOB(student.dateOfBirth) ?? ""}`,
+  const canvas = await renderIdCardCanvas(
+    {
+      name: `${student.firstName} ${student.lastName ?? ""}`.trim(),
+      className: student.class.name,
+      sectionName: student.section.name,
+      fatherName: student.fatherName ?? "",
+      dob: `${formatDOB(student.dateOfBirth) ?? ""}`,
       address: student.currentAddress ?? "",
       mobile: student.mobileNo ?? "",
-    bloodGroup: student.bloodGroup ?? "",
-    photoUrl: student.photoUrl!,
-  });
+      bloodGroup: student.bloodGroup ?? "",
+      photoUrl: student.photoUrl!,
+    },
+    side
+  );
 
   // 5️⃣ Convert to PNG
   const buffer = canvas.toBuffer("image/png");
@@ -101,19 +108,25 @@ export async function getOrCreateIdCardPreview(studentId: number) {
   // 6️⃣ Upload to ImageKit
   const upload = await imagekit.upload({
     file: buffer,
-    fileName: `id-card-${student.id}.png`,
+    fileName: `id-card-${student.id}-${side}.png`,
     folder: "/id-card-previews",
   });
 
   // 7️⃣ Save preview URL + status
+  const updateData: any = {
+    status: "READY",
+  };
+
+  if (side === "FRONT") {
+    updateData.frontUrl = upload.url;
+  } else {
+    updateData.backUrl = upload.url;
+  }
+
   await prisma.idCard.update({
     where: { id: idCard.id },
-    data: {
-      previewUrl: upload.url,
-      status: "READY",
-    },
+    data: updateData,
   });
 
   return upload.url;
 }
-
