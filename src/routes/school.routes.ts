@@ -7,8 +7,8 @@ import { uploadImage } from "../middlewares/upload-image.middleware.js";
 const router = Router();
 
 // router.post("/", authenticate,authorizeRoles("SUPER_ADMIN"), createSchool);
-router.get("/", authenticate,authorizeRoles("SUPER_ADMIN"), getSchools);
-router.get("/:schoolId", authenticate, authorizeRoles("SUPER_ADMIN"), getSchoolById);
+router.get("/", authenticate,authorizeRoles("SUPER_ADMIN","VENDOR"), getSchools);
+router.get("/:schoolId", authenticate, authorizeRoles("SUPER_ADMIN","VENDOR"), getSchoolById);
 router.post(
   "/register",
   authenticate,

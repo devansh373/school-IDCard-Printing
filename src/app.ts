@@ -12,7 +12,7 @@ import sectionRoutes from "./routes/section.routes.js";
 import studentRoutes from "./routes/student.routes.js"
 import dashboardRoutes from "./routes/dashboard.routes.js"
 import vendorRoutes from "./routes/vendor.routes.js";
-// import idCardRoutes from "./routes/idCard.routes.js";
+import idCardRoutes from "./routes/idCard.routes.js";
 
 const app = express();
 
@@ -29,7 +29,7 @@ app.use("/api/students", studentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 app.use("/api/vendors", vendorRoutes);
-// app.use("/api", idCardRoutes);
+app.use("/api", idCardRoutes);
 
 app.use((err:any, req:Request, res:Response, next:NextFunction) => {
   if (err instanceof multer.MulterError) {

@@ -42,6 +42,8 @@ model School {
   createdAt DateTime @default(now())
 }
 
+
+
 model Class {
   id       Int    @id @default(autoincrement())
   name     String
@@ -118,24 +120,26 @@ model Student {
   photoStatus PhotoStatus @default(NOT_UPLOADED)
 
   printStatus PrintStatus @default(PENDING)
+  idCard      IdCard?
 }
 
-// model Student {
-//   id               Int     @id @default(autoincrement())
-//   enrollmentNumber String  @unique
-//   name             String
+enum IdCardStatus {
+  PENDING
+  READY
+}
 
-//   schoolId  Int
-//   classId   Int
-//   sectionId Int
+model IdCard {
+  id         Int          @id @default(autoincrement())
+  studentId  Int          @unique
+  previewUrl String?
+  status     IdCardStatus @default(PENDING)
 
-//   school   School  @relation(fields: [schoolId], references: [id])
-//   class    Class   @relation(fields: [classId], references: [id])
-//   section  Section @relation(fields: [sectionId], references: [id])
+  student    Student      @relation(fields: [studentId], references: [id])
 
-//   photoUrl    String?
-//   printStatus String  @default("PENDING")
-// }
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
 
 enum UserRole {
   SUPER_ADMIN
