@@ -23,7 +23,7 @@ router.get(
 router.get(
   "/:schoolId",
   authenticate,
-  authorizeRoles("SUPER_ADMIN", "VENDOR"),
+  authorizeRoles("SUPER_ADMIN", "VENDOR","SCHOOL_ADMIN"),
   getSchoolById
 );
 router.post(
