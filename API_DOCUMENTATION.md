@@ -1,14 +1,17 @@
 # School ID Card Printing System - API Documentation
 
 ## Base URL
+
 ```
 http://localhost:PORT/api
 ```
 
 ## Authentication
+
 Most endpoints require authentication via JWT token stored in HTTP-only cookies. Include the `access_token` cookie in requests.
 
 ## Response Format
+
 All responses are in JSON format.
 
 ---
@@ -16,6 +19,7 @@ All responses are in JSON format.
 ## Health Check
 
 ### Get Health Status
+
 - **Endpoint:** `GET /health`
 - **Authentication:** Not required
 - **Description:** Check if the API is running
@@ -31,6 +35,7 @@ All responses are in JSON format.
 ## Authentication Endpoints (`/api/auth`)
 
 ### 1. Login
+
 - **Endpoint:** `POST /auth/login`
 - **Authentication:** Not required
 - **Description:** Authenticate user with email and password. Returns JWT token in HTTP-only cookie.
@@ -52,13 +57,14 @@ All responses are in JSON format.
     }
   }
   ```
-- **Response (Failure):** 
+- **Response (Failure):**
   - 400: Email and password required
   - 401: Invalid credentials
 
 ---
 
 ### 2. Logout
+
 - **Endpoint:** `POST /auth/logout`
 - **Authentication:** Not required
 - **Description:** Logout user by clearing the authentication cookie
@@ -72,6 +78,7 @@ All responses are in JSON format.
 ---
 
 ### 3. Change Password
+
 - **Endpoint:** `POST /auth/change-password`
 - **Authentication:** Required
 - **Authorization:** All authenticated users
@@ -96,6 +103,7 @@ All responses are in JSON format.
 ---
 
 ### 4. Get User Profile
+
 - **Endpoint:** `GET /auth/profile`
 - **Authentication:** Required
 - **Authorization:** All authenticated users
@@ -123,7 +131,9 @@ All responses are in JSON format.
       "school": {
         "id": 1,
         "name": "ABC School",
-        "code": "ABC001"
+        "code": "ABC001",
+        "logoUrl": "https://ik.imagekit.io/...",
+        "templateUrl": "https://ik.imagekit.io/..."
       },
       "mustChangePassword": false,
       "isActive": true,
@@ -154,6 +164,7 @@ All responses are in JSON format.
 ---
 
 ### 5. Update User Profile (Self)
+
 - **Endpoint:** `PUT /auth/profile`
 - **Authentication:** Required
 - **Authorization:** All authenticated users
@@ -193,6 +204,7 @@ All responses are in JSON format.
 ---
 
 ### 6. Get Any User (Admin Only)
+
 - **Endpoint:** `GET /auth/users/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -207,7 +219,9 @@ All responses are in JSON format.
     "school": {
       "id": 1,
       "name": "ABC School",
-      "code": "ABC001"
+      "code": "ABC001",
+      "logoUrl": "https://ik.imagekit.io/...",
+      "templateUrl": "https://ik.imagekit.io/..."
     },
     "schoolId": 1,
     "mustChangePassword": false,
@@ -215,33 +229,34 @@ All responses are in JSON format.
     "createdAt": "2026-01-10T12:00:00Z"
   }
   ```
-router.get(
+  router.get(
   "/users/:id",
   authenticate,
   authorizeRoles("SUPER_ADMIN"),
   getUser
+  );
+
+router.get(
+"/users",
+authenticate,
+authorizeRoles("SUPER_ADMIN"),
+getAllUsers
 );
 
 router.get(
-  "/users",
-  authenticate,
-  authorizeRoles("SUPER_ADMIN"),
-  getAllUsers
+"/vendors",
+authenticate,
+authorizeRoles("SUPER_ADMIN"),
+getAllVendors
 );
 
 router.get(
-  "/vendors",
-  authenticate,
-  authorizeRoles("SUPER_ADMIN"),
-  getAllVendors
+"/school-admins",
+authenticate,
+authorizeRoles("SUPER_ADMIN"),
+getAllSchoolAdmins
 );
 
-router.get(
-  "/school-admins",
-  authenticate,
-  authorizeRoles("SUPER_ADMIN"),
-  getAllSchoolAdmins
-);
 - **Response (Failure):**
   - 401: Unauthorized
   - 403: Forbidden (not SUPER_ADMIN)
@@ -251,6 +266,7 @@ router.get(
 ---
 
 ### 8. Get All Users (Admin)
+
 - **Endpoint:** `GET /auth/users`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -313,6 +329,7 @@ router.get(
 ---
 
 ### 9. Get All Vendors (Admin)
+
 - **Endpoint:** `GET /auth/vendors`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -357,6 +374,7 @@ router.get(
 ---
 
 ### 10. Get All School Admins (Admin)
+
 - **Endpoint:** `GET /auth/school-admins`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -415,6 +433,7 @@ router.get(
 ---
 
 ### 7. Update Any User (Admin Only)
+
 - **Endpoint:** `PUT /auth/users/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -463,6 +482,7 @@ router.get(
 ## School Endpoints (`/api/schools`)
 
 ### 1. Create School
+
 - **Endpoint:** `POST /schools/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -491,6 +511,7 @@ router.get(
 ---
 
 ### 2. Get All Schools
+
 - **Endpoint:** `GET /schools/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -500,6 +521,7 @@ router.get(
   - `page` (number, optional): Page number. Default: 1
 - **Example Request:** `GET /schools/?limit=20&page=1`
 - **Response (Success):**
+
   ```json
   {
     "data": [
@@ -516,6 +538,8 @@ router.get(
         "registrationDetails": "Central Board of Secondary Education",
         "authoritySignatureUrl": "https://ik.imagekit.io/...",
         "principalSignatureUrl": "https://ik.imagekit.io/...",
+        "logoUrl": "https://ik.imagekit.io/...",
+        "templateUrl": "https://ik.imagekit.io/...",
         "imagekitPublicKey": "public_xTYabJQlSXddkvABKRZexz03xTU=",
         "imagekitUrlEndpoint": "https://ik.imagekit.io/avvowijga",
         "imagekitFolder": "schools/1",
@@ -549,13 +573,13 @@ router.get(
   }
   ```
 
+- **Response (Failure):**
+  - 401: Unauthorized
+  - 403: Forbidden
+  - 500: Failed to fetch schools
+
 ---
 
-### 3. Get School by ID
-- **Endpoint:** `GET /schools/:schoolId`
-- **Authentication:** Required
-- **Authorization:** SUPER_ADMIN only
-- **Description:** Retrieve a specific school with admin email and ImageKit configuration
 - **Path Parameters:** `schoolId` (school ID)
 - **Response (Success):**
   ```json
@@ -564,6 +588,16 @@ router.get(
     "name": "ABC School",
     "code": "ABC001",
     "adminEmail": "admin@abcschool.com",
+    "description": "A premier educational institution",
+    "address": "123 Main Street, City",
+    "contactNumber": "+1234567890",
+    "affiliationNumber": "AFFIL123",
+    "registrationNumber": "REG001",
+    "registrationDetails": "Central Board of Secondary Education",
+    "authoritySignatureUrl": "https://ik.imagekit.io/...",
+    "principalSignatureUrl": "https://ik.imagekit.io/...",
+    "logoUrl": "https://ik.imagekit.io/...",
+    "templateUrl": "https://ik.imagekit.io/...",
     "imagekitPublicKey": "public_xTYabJQlSXddkvABKRZexz03xTU=",
     "imagekitUrlEndpoint": "https://ik.imagekit.io/avvowijga",
     "imagekitFolder": "schools/1",
@@ -580,6 +614,7 @@ router.get(
 ---
 
 ### 4. Register School with Admin
+
 - **Endpoint:** `POST /schools/register`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -589,7 +624,11 @@ router.get(
   {
     "name": "ABC School",
     "code": "ABC001",
-    "adminEmail": "admin@abcschool.com"
+    "adminEmail": "admin@abcschool.com",
+    "imagekitPublicKey": "public_x...",
+    "imagekitPrivateKey": "private_x...",
+    "imagekitUrlEndpoint": "https://ik.imagekit.io/...",
+    "imagekitFolder": "folder_name"
   }
   ```
 - **Response (Success):**
@@ -608,6 +647,7 @@ router.get(
 ---
 
 ### 5. Update ImageKit Credentials
+
 - **Endpoint:** `PUT /schools/:schoolId/imagekit`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -646,9 +686,70 @@ router.get(
 
 ---
 
+### 6. Upload School Signatures
+
+- **Endpoint:** `POST /schools/:schoolId/signatures`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
+- **Content-Type:** `multipart/form-data`
+- **Description:** Upload official signatures for the school ID cards. Supports uploading both or either signature.
+- **Form Data Fields:**
+  - `principal` (file, optional) — Principal's signature image
+  - `authority` (file, optional) — Authority's signature image
+- **Response (Success):**
+  ```json
+  {
+    "message": "Signatures uploaded and replaced successfully",
+    "school": {
+      "id": 1,
+      "principalSignatureUrl": "...",
+      "authoritySignatureUrl": "..."
+    }
+  }
+  ```
+
+---
+
+### 7. School Setup (General Info, Logo, Template)
+
+- **Endpoint:**
+  - `PUT /schools/setup` (For **SCHOOL_ADMIN**, uses token schoolId)
+  - `PUT /schools/:schoolId/setup` (For **SUPER_ADMIN**)
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN or SCHOOL_ADMIN
+- **Content-Type:** `multipart/form-data`
+- **Description:** Update school profile details and upload branding assets (logo, ID card background template).
+- **Form Data Fields:**
+  - `name` (string, optional)
+  - `code` (string, optional)
+  - `adminEmail` (string, optional)
+  - `description` (string, optional)
+  - `address` (string, optional)
+  - `contactNumber` (string, optional)
+  - `affiliationNumber` (string, optional)
+  - `registrationNumber` (string, optional)
+  - `registrationDetails` (string, optional)
+  - `logo` (file, optional) — School logo image
+  - `template` (file, optional) — ID card background template image
+- **Response (Success):**
+  ```json
+  {
+    "message": "School setup updated successfully",
+    "school": { ...updated school object... }
+  }
+  ```
+- **Response (Failure):**
+  - 400: Valid schoolId is required / Image upload disabled (ImageKit not configured)
+  - 403: Forbidden (trying to access another school)
+  - 404: School not found
+  - 500: Failed to update school setup
+
+---
+
 ## Class Endpoints (`/api/classes`)
 
 ### 1. Create Class
+
 - **Endpoint:** `POST /classes/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -676,6 +777,7 @@ router.get(
 ---
 
 ### 2. Get Classes
+
 - **Endpoint:** `GET /classes/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, TEACHER
@@ -729,6 +831,7 @@ router.get(
 ## Section Endpoints (`/api/sections`)
 
 ### 1. Create Section
+
 - **Endpoint:** `POST /sections/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -757,6 +860,7 @@ router.get(
 ---
 
 ### 2. Get Sections
+
 - **Endpoint:** `GET /sections/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, TEACHER
@@ -779,6 +883,7 @@ router.get(
 ## Student Endpoints (`/api/students`)
 
 ### 1. Get Students
+
 - **Endpoint:** `GET /students/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, TEACHER
@@ -831,6 +936,7 @@ router.get(
 ---
 
 ### 2. Create Student
+
 - **Endpoint:** `POST /students`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -866,7 +972,7 @@ router.get(
   ```
 - **Required Fields:** `enrollmentNumber`, `firstName`, `classId`, `sectionId`
 - **Optional Fields:** `middleName`, `lastName`, `rollNo`, `admissionNo`, `dateOfBirth`, `fatherName`, `motherName`, `currentAddress`, `remarks`, `mobileNo`, `email`, `gender`, `religion`, `aadhar`, `aparId`, `uniqueId`, `pan`, `bloodGroup`, `houseName`
-- **Special Notes:** 
+- **Special Notes:**
   - `schoolCode` is required for SUPER_ADMIN only
   - `classId` and `sectionId` must exist in the school
   - `enrollmentNumber` must be unique across the school
@@ -917,6 +1023,7 @@ router.get(
 ---
 
 ### 3. Get Student by ID
+
 - **Endpoint:** `GET /students/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, TEACHER
@@ -930,6 +1037,7 @@ router.get(
 ---
 
 ### 4. Update Student
+
 - **Endpoint:** `PUT /students/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -978,6 +1086,7 @@ router.get(
 ---
 
 ### 5. Delete Student
+
 - **Endpoint:** `DELETE /students/:id`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN (Teachers cannot delete)
@@ -998,6 +1107,7 @@ router.get(
 ---
 
 ### 6. Bulk Import Students (CSV/Excel)
+
 - **Endpoint:** `POST /students/import`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -1063,6 +1173,7 @@ router.get(
 ---
 
 ### 7. Upload Student Photo
+
 - **Endpoint:** `POST /students/:id/photo`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN
@@ -1089,6 +1200,7 @@ router.get(
 ## Vendor Endpoints (`/api/vendors`)
 
 ### 1. Register Vendor
+
 - **Endpoint:** `POST /vendors/register`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -1117,6 +1229,7 @@ router.get(
 ---
 
 ### 2. Get All Vendors
+
 - **Endpoint:** `GET /vendors/`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -1152,6 +1265,7 @@ router.get(
 ---
 
 ### 3. Assign School to Vendor
+
 - **Endpoint:** `POST /vendors/:vendorId/schools`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -1185,11 +1299,12 @@ router.get(
 ---
 
 ### 4. Remove School from Vendor
+
 - **Endpoint:** `DELETE /vendors/:vendorId/schools/:schoolId`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
 - **Description:** Remove a school assignment from a vendor. The school ID is removed from vendor's schoolIds array.
-- **Path Parameters:** 
+- **Path Parameters:**
   - `vendorId` (vendor user ID)
   - `schoolId` (school ID)
 - **Response (Success):**
@@ -1213,6 +1328,7 @@ router.get(
 ---
 
 ### 5. Get Vendor's Assigned Schools
+
 - **Endpoint:** `GET /vendors/:vendorId/schools`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN or the vendor themselves
@@ -1255,9 +1371,20 @@ router.get(
 
 ---
 
+### 6. Get My Assigned Schools (Vendor only)
+
+- **Endpoint:** `GET /vendors/schools`
+- **Authentication:** Required
+- **Authorization:** VENDOR only
+- **Description:** Retrieve schools assigned to the currently logged-in vendor.
+- **Response (Success):** Same as "Get Vendor's Assigned Schools"
+
+---
+
 ## Dashboard Endpoints (`/api/dashboard`)
 
 ### 1. Super Admin Dashboard
+
 - **Endpoint:** `GET /dashboard/super-admin`
 - **Authentication:** Required
 - **Authorization:** SUPER_ADMIN only
@@ -1286,16 +1413,98 @@ router.get(
 
 ---
 
+## ID Card Endpoints (`/api/id-cards`)
+
+### 1. Single ID Card Generation
+
+- **Endpoint:** `GET /students/:studentId/id-card/single-generate`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, VENDOR
+- **Description:** Manually trigger generation of both front and back ID cards for a single student.
+- **Response (Success):**
+  ```json
+  {
+    "message": "ID card generated successfully",
+    "frontUrl": "...",
+    "backUrl": "..."
+  }
+  ```
+
+### 2. Bulk ID Card Generation
+
+- **Endpoint:** `POST /id-cards/bulk-generate`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, VENDOR
+- **Description:** Trigger ID card generation for multiple students simultaneously.
+- **Request Body:**
+  ```json
+  {
+    "studentIds": [1, 2, 3, 4, 5]
+  }
+  ```
+- **Response (Success):**
+  ```json
+  {
+    "message": "Bulk generation started for 5 students"
+  }
+  ```
+
+### 3. Print ID Cards (Generate PDF)
+
+- **Endpoint:** `POST /id-cards/print`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, VENDOR
+- **Description:** Generate a printable PDF containing ID cards for specified students.
+- **Request Body:**
+  ```json
+  {
+    "studentIds": [1, 2, 3]
+  }
+  ```
+- **Response (Success):**
+  ```json
+  {
+    "message": "PDF generated",
+    "pdfUrl": "..."
+  }
+  ```
+
+### 4. Get ID Card Previews
+
+- **Endpoint:** `GET /id-cards/previews`
+- **Authentication:** Required
+- **Authorization:** SUPER_ADMIN, SCHOOL_ADMIN, VENDOR
+- **Description:** List students and the status of their ID card previews.
+- **Query Parameters:**
+  - `schoolId` (number, optional)
+  - `classId` (number, optional)
+- **Response (Success):**
+  ```json
+  {
+    "data": [
+      {
+        "studentId": 1,
+        "name": "Raj Kumar",
+        "frontUrl": "...",
+        "backUrl": "...",
+        "status": "READY"
+      }
+    ]
+  }
+  ```
+
+---
+
 ## User Roles
 
 The system implements Role-Based Access Control (RBAC) with the following roles:
 
-| Role | Permissions |
-|------|------------|
-| **SUPER_ADMIN** | Full system access. Can create schools, manage school admins, manage vendors, view all data. |
+| Role             | Permissions                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| **SUPER_ADMIN**  | Full system access. Can create schools, manage school admins, manage vendors, view all data.            |
 | **SCHOOL_ADMIN** | Can manage their school's classes, sections, students, and teachers. Cannot access other schools' data. |
-| **TEACHER** | Can view their school's classes, sections, and students. Cannot modify data. |
-| **VENDOR** | Can access vendor portal for ID card printing operations. |
+| **TEACHER**      | Can view their school's classes, sections, and students. Cannot modify data.                            |
+| **VENDOR**       | Can access vendor portal for ID card printing operations.                                               |
 
 ---
 
@@ -1310,6 +1519,7 @@ All errors follow this format:
 ```
 
 ### Common HTTP Status Codes
+
 - **200 OK:** Successful GET request
 - **201 Created:** Successful resource creation (POST)
 - **400 Bad Request:** Invalid input or missing required fields
@@ -1324,16 +1534,19 @@ All errors follow this format:
 ## Enums
 
 ### PrintStatus
+
 - `NOT_STARTED`: Print job not yet started
 - `IN_PROGRESS`: Print job is being processed
 - `COMPLETED`: Print job completed successfully
 - `FAILED`: Print job failed
 
 ### PhotoStatus
+
 - `PENDING`: Photo awaiting upload
 - `UPLOADED`: Photo successfully uploaded
 
 ### VendorStatus
+
 - `ONBOARDING`: Vendor account being set up
 - `ACTIVE`: Vendor account is active
 - `INACTIVE`: Vendor account is inactive
@@ -1353,4 +1566,5 @@ All errors follow this format:
 ---
 
 ## Generated on
+
 January 12, 2026

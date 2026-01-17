@@ -6,6 +6,7 @@ import {
   updateImagekitCredentials,
   uploadSignatures,
   schoolSetup,
+  getSchoolProfile,
 } from "../controllers/school.controllers.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
 import { authorizeRoles } from "../middlewares/authorize.middleware.js";
@@ -13,32 +14,47 @@ import { uploadImage } from "../middlewares/upload-image.middleware.js";
 
 const router = Router();
 
-// router.post("/", authenticate,authorizeRoles("SUPER_ADMIN"), createSchool);
+// Get all schools (Super Admin/Vendor)
 router.get(
   "/",
   authenticate,
   authorizeRoles("SUPER_ADMIN", "VENDOR"),
   getSchools
 );
+
+// Get current user's school profile
+router.get(
+  "/profile",
+  authenticate,
+  authorizeRoles("SCHOOL_ADMIN"),
+  getSchoolProfile
+);
+
+// Get specific school by ID
 router.get(
   "/:schoolId",
   authenticate,
-  authorizeRoles("SUPER_ADMIN", "VENDOR","SCHOOL_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "VENDOR", "SCHOOL_ADMIN"),
   getSchoolById
 );
+
+// Admin: register new school
 router.post(
   "/register",
   authenticate,
   authorizeRoles("SUPER_ADMIN"),
   registerSchoolWithAdmin
 );
+
+// Admin: update ImageKit credentials
 router.put(
   "/:schoolId/imagekit",
   authenticate,
   authorizeRoles("SUPER_ADMIN"),
   updateImagekitCredentials
 );
-// Upload signatures (principal, authority, or both)
+
+// School Admin/Super Admin: upload signatures
 router.post(
   "/:schoolId/signatures",
   authenticate,
@@ -50,6 +66,7 @@ router.post(
   uploadSignatures
 );
 
+// School Admin: setup school
 router.put(
   "/setup",
   authenticate,
@@ -61,6 +78,7 @@ router.put(
   schoolSetup
 );
 
+// Super Admin: setup specific school
 router.put(
   "/:schoolId/setup",
   authenticate,

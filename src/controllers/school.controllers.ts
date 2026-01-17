@@ -151,9 +151,69 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
   }
 };
 
+/**
+ * Get school profile for authenticated users (SCHOOL_ADMIN, TEACHER)
+ */
+export const getSchoolProfile = async (req: AuthRequest, res: Response) => {
+  const schoolId = req.user?.schoolId;
+
+  if (!schoolId) {
+    return res
+      .status(400)
+      .json({ message: "No school associated with this user" });
+  }
+
+  try {
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        adminEmail: true,
+        description: true,
+        address: true,
+        contactNumber: true,
+        affiliationNumber: true,
+        registrationNumber: true,
+        registrationDetails: true,
+        authoritySignatureUrl: true,
+        principalSignatureUrl: true,
+        logoUrl: true,
+        templateUrl: true,
+        imagekitPublicKey: true,
+        imagekitPrivateKey: true,
+        imagekitUrlEndpoint: true,
+        imagekitFolder: true,
+        createdAt: true,
+        _count: {
+          select: {
+            students: true,
+          },
+        },
+      },
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    const schoolProfile = {
+      ...school,
+      totalStudents: (school as any)._count.students,
+      _count: undefined,
+    };
+
+    return res.json(schoolProfile);
+  } catch (error: any) {
+    console.error("GET SCHOOL PROFILE ERROR:", error);
+    return res.status(500).json({
+      message: error.message || "Failed to fetch school profile",
+    });
+  }
+};
+
 // register school
-
-
 
 export const registerSchoolWithAdmin = async (
   req: AuthRequest,
