@@ -527,20 +527,12 @@ export const uploadStudentPhoto = async (
     });
 
     // ✅ 2️⃣ AUTO-GENERATE ID CARD (NON-BLOCKING)
-    getOrCreateIdCardPreview(studentId,"FRONT")
+    getOrCreateIdCardPreview(studentId, "FRONT")
+      .then(() => getOrCreateIdCardPreview(studentId, "BACK"))
       .then(() => {
-        console.log(`ID card generated for student ${studentId}`);
-      })
-      .catch((err) => {
-        console.error(
-          `ID card generation failed for student ${studentId}`,
-          err
+        console.log(
+          `ID cards (Front & Back) generated for student ${studentId}`
         );
-      });
-
-    getOrCreateIdCardPreview(studentId,"BACK")
-      .then(() => {
-        console.log(`ID card generated for student ${studentId}`);
       })
       .catch((err) => {
         console.error(
