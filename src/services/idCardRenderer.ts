@@ -44,15 +44,11 @@
 // //   // 4. Draw photo
 // //   ctx.drawImage(photoImage, 60, 120, 220, 260);
 
-
-
-
 // // PHOTO FRAME SETTINGS
 // // const photoX = 60;
 // // const photoY = 120;
 // // const photoW = 220;
 // // const photoH = 260;
-
 
 // const photoX = (width - 220) / 2; // center horizontally
 // const photoY = 120;
@@ -118,7 +114,6 @@
 // ctx.fillText(`Class: ${data.className}`, width / 2, 480);
 // ctx.fillText(`Section: ${data.sectionName}`, width / 2, 520);
 
-
 //   // 6. Convert to buffer
 //   const imageBuffer = canvas.toBuffer("image/png");
 
@@ -131,7 +126,6 @@
 
 //   return upload.url;
 // }
-
 
 // src/services/idCardRenderer.ts
 // import { CanvasRenderingContext2D, createCanvas, loadImage } from "canvas";
@@ -281,7 +275,6 @@
 //   return upload.url;
 // }
 
-
 import { createCanvas, loadImage, CanvasRenderingContext2D } from "canvas";
 import fetch from "node-fetch";
 import path from "path";
@@ -296,6 +289,10 @@ export interface StudentCardData {
   mobile: string;
   bloodGroup: string;
   photoUrl: string;
+  rollNo?: string;
+  houseName?: string;
+  schoolAddress?: string;
+  schoolContact?: string;
 }
 
 // const WIDTH = 1016;
@@ -403,9 +400,8 @@ export interface StudentCardData {
 //   return canvas;
 // }
 
-
 // export async function renderIdCardCanvas(data: StudentCardData) {
-    
+
 //     const WIDTH = 400;
 //     const HEIGHT = 800;
 //     const canvas = createCanvas(WIDTH, HEIGHT);
@@ -418,7 +414,6 @@ export interface StudentCardData {
 //   const bg = await loadImage("src/templates/id-card-bg.png");
 // //   ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
 // ctx.drawImage(bg, 0, 0, WIDTH , HEIGHT);
-
 
 //   // -------------------------
 //   // PHOTO
@@ -473,7 +468,6 @@ export interface StudentCardData {
 
 //     const MAX_TEXT_WIDTH = WIDTH - VALUE_X - 30;
 
-
 //     function drawWrappedText(
 //   text: string,
 //   x: number,
@@ -504,7 +498,6 @@ export interface StudentCardData {
 //   return currentY + lineHeight;
 // }
 
-
 // //   function drawRow(label: string, value: string) {
 // //     if (!value) return;
 
@@ -518,7 +511,6 @@ export interface StudentCardData {
 
 // //     currentY += LINE_GAP;
 // //   }
-
 
 // function drawRow(label: string, value: string) {
 //   if (!value) return;
@@ -549,9 +541,6 @@ export interface StudentCardData {
 
 //   return canvas;
 // }
-
-
-
 
 // export interface StudentCardData {
 //   name: string;
@@ -693,9 +682,6 @@ export interface StudentCardData {
 //   return canvas;
 // }
 
-
-
-
 export interface StudentCardData {
   name: string;
   className: string;
@@ -706,6 +692,11 @@ export interface StudentCardData {
   mobile: string;
   bloodGroup: string;
   photoUrl: string;
+  rollNo?: string;
+  houseName?: string;
+  schoolAddress?: string;
+  schoolContact?: string;
+  enrollmentNo?: string;
 }
 
 export type CardSide = "FRONT" | "BACK";
@@ -726,6 +717,39 @@ export async function renderIdCardCanvas(
   }
 
   return canvas;
+}
+
+/* =========================
+   HELPERS
+========================= */
+
+function drawWrappedText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number
+) {
+  const words = text.split(" ");
+  let line = "";
+  let drawY = y;
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + " ";
+    const testWidth = ctx.measureText(testLine).width;
+
+    if (testWidth > maxWidth && i > 0) {
+      ctx.fillText(line, x, drawY);
+      line = words[i] + " ";
+      drawY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+
+  ctx.fillText(line, x, drawY);
+  return drawY + lineHeight;
 }
 
 /* =========================
@@ -778,7 +802,36 @@ async function renderFront(
   currentY += 36;
   ctx.textAlign = "left";
 
-  drawDetails(ctx, data, WIDTH, HEIGHT, currentY);
+  const LABEL_X = 50;
+  const VALUE_X = 190;
+  const MAX_TEXT_WIDTH = WIDTH - VALUE_X - 20;
+
+  function drawRow(label: string, value: string) {
+    if (!value || currentY > HEIGHT - 30) return;
+
+    ctx.fillStyle = "#C0392B";
+    ctx.font = "bold 18px Arial";
+    ctx.fillText(label, LABEL_X, currentY);
+
+    ctx.fillStyle = "#1F7A7A";
+    ctx.font = "18px Arial";
+
+    currentY = drawWrappedText(
+      ctx,
+      value,
+      VALUE_X,
+      currentY,
+      MAX_TEXT_WIDTH,
+      24
+    );
+    currentY += 6;
+  }
+
+  drawRow("Father Name", data.fatherName);
+  drawRow("Roll No", data.rollNo ?? "");
+  drawRow("House", data.houseName ?? "");
+  drawRow("Enrollment No", data.enrollmentNo ?? "");
+  drawRow("DOB", data.dob);
 }
 
 /* =========================
@@ -799,28 +852,37 @@ async function renderBack(
 
   ctx.textAlign = "left";
 
-  let y = 140;
+  let currentY = 140;
   const LABEL_X = 40;
-  const VALUE_X = 190;
+  const VALUE_X = 175;
+  const MAX_TEXT_WIDTH = WIDTH - VALUE_X - 25;
 
-  function row(label: string, value: string) {
+  function drawRow(label: string, value: string) {
     if (!value) return;
 
     ctx.fillStyle = "#000";
     ctx.font = "bold 16px Arial";
-    ctx.fillText(label + " :", LABEL_X, y);
+    ctx.fillText(label + " :", LABEL_X, currentY);
 
     ctx.fillStyle = "#C0392B";
     ctx.font = "16px Arial";
-    ctx.fillText(value, VALUE_X, y);
 
-    y += 30;
+    currentY = drawWrappedText(
+      ctx,
+      value,
+      VALUE_X,
+      currentY,
+      MAX_TEXT_WIDTH,
+      20
+    );
+    currentY += 10;
   }
 
-  row("Blood Group", data.bloodGroup);
-  row("Contact No", data.mobile);
-  row("Father Name", data.fatherName);
-  row("Address", data.address);
+  drawRow("Contact No", data.mobile);
+  drawRow("Blood Group", data.bloodGroup);
+  drawRow("Address", data.address);
+  drawRow("School Addr", data.schoolAddress ?? "");
+  drawRow("School Ph", data.schoolContact ?? "");
 
   ctx.textAlign = "center";
   ctx.font = "12px Arial";
@@ -830,74 +892,4 @@ async function renderBack(
     WIDTH / 2,
     HEIGHT - 40
   );
-}
-
-/* =========================
-   SHARED DETAILS (FRONT)
-========================= */
-
-function drawDetails(
-  ctx: CanvasRenderingContext2D,
-  data: StudentCardData,
-  WIDTH: number,
-  HEIGHT: number,
-  startY: number
-) {
-  let currentY = startY;
-
-  const LABEL_X = 50;
-  const VALUE_X = 190;
-  const MAX_TEXT_WIDTH = WIDTH - VALUE_X - 20;
-
-  function drawWrappedText(
-    text: string,
-    x: number,
-    y: number,
-    maxWidth: number,
-    lineHeight: number
-  ) {
-    const words = text.split(" ");
-    let line = "";
-    let drawY = y;
-
-    for (let i = 0; i < words.length; i++) {
-      const testLine = line + words[i] + " ";
-      const testWidth = ctx.measureText(testLine).width;
-
-      if (testWidth > maxWidth && i > 0) {
-        ctx.fillText(line, x, drawY);
-        line = words[i] + " ";
-        drawY += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-
-    ctx.fillText(line, x, drawY);
-    return drawY + lineHeight;
-  }
-
-  function drawRow(label: string, value: string) {
-    if (!value || currentY > HEIGHT - 30) return;
-
-    ctx.fillStyle = "#C0392B";
-    ctx.font = "bold 18px Arial";
-    ctx.fillText(label, LABEL_X, currentY);
-
-    ctx.fillStyle = "#1F7A7A";
-    ctx.font = "18px Arial";
-
-    currentY = drawWrappedText(
-      value,
-      VALUE_X,
-      currentY,
-      MAX_TEXT_WIDTH,
-      24
-    );
-
-    currentY += 6;
-  }
-
-  drawRow("Father Name", data.fatherName);
-  drawRow("DOB", data.dob);
 }

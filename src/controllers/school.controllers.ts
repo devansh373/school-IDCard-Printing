@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import {prisma} from "../db.js";
+import { prisma } from "../db.js";
 
 /**
  * Create a school
@@ -36,8 +36,12 @@ import {prisma} from "../db.js";
  * Get all schools with optional filters
  */
 export const getSchools = async (req: Request, res: Response) => {
-  const { search, limit = "10", page = "1" } = req.query as Record<string, string>;
-  
+  const {
+    search,
+    limit = "10",
+    page = "1",
+  } = req.query as Record<string, string>;
+
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10)); // Max 100 per page
   const skip = (pageNum - 1) * limitNum;
@@ -176,7 +180,6 @@ import { sendSchoolAdminCredentials } from "../utils/mailer.js";
 import type { Prisma, School } from "../generated/prisma/client.js";
 import { imagekit } from "../config/imagekit.js";
 import ImageKit from "imagekit";
-
 
 export const registerSchoolWithAdmin = async (
   req: AuthRequest,
@@ -331,7 +334,8 @@ export const updateImagekitCredentials = async (
     const updateData: any = {};
     if (imagekitPublicKey) updateData.imagekitPublicKey = imagekitPublicKey;
     if (imagekitPrivateKey) updateData.imagekitPrivateKey = imagekitPrivateKey;
-    if (imagekitUrlEndpoint) updateData.imagekitUrlEndpoint = imagekitUrlEndpoint;
+    if (imagekitUrlEndpoint)
+      updateData.imagekitUrlEndpoint = imagekitUrlEndpoint;
     if (imagekitFolder !== undefined)
       updateData.imagekitFolder = imagekitFolder || null;
 
@@ -366,10 +370,7 @@ export const updateImagekitCredentials = async (
  * Upload Both or Either Signatures to ImageKit
  * Can upload principal signature, authority signature, or both
  */
-export const uploadSignatures = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const uploadSignatures = async (req: AuthRequest, res: Response) => {
   const { schoolId } = req.params;
 
   // Cast files as Express.Multer.File[] or single file
@@ -378,12 +379,19 @@ export const uploadSignatures = async (
   const authorityFile = files.authority?.[0];
 
   if (!principalFile && !authorityFile) {
-    return res.status(400).json({ message: "At least one signature file required (principal or authority)" });
+    return res.status(400).json({
+      message: "At least one signature file required (principal or authority)",
+    });
   }
 
   // 🔐 RBAC: SUPER_ADMIN or SCHOOL_ADMIN (only their own school)
-  if (req.user?.role === "SCHOOL_ADMIN" && req.user.schoolId !== Number(schoolId)) {
-    return res.status(403).json({ message: "Forbidden: Can only upload to your own school" });
+  if (
+    req.user?.role === "SCHOOL_ADMIN" &&
+    req.user.schoolId !== Number(schoolId)
+  ) {
+    return res
+      .status(403)
+      .json({ message: "Forbidden: Can only upload to your own school" });
   }
 
   if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "SCHOOL_ADMIN") {
@@ -415,9 +423,14 @@ export const uploadSignatures = async (
     }
 
     // 🚫 Block upload if ImageKit not configured
-    if (!school.imagekitPublicKey || !school.imagekitPrivateKey || !school.imagekitUrlEndpoint) {
+    if (
+      !school.imagekitPublicKey ||
+      !school.imagekitPrivateKey ||
+      !school.imagekitUrlEndpoint
+    ) {
       return res.status(400).json({
-        message: "Image upload is disabled. Please configure ImageKit credentials for this school.",
+        message:
+          "Image upload is disabled. Please configure ImageKit credentials for this school.",
       });
     }
 
@@ -440,7 +453,10 @@ export const uploadSignatures = async (
         try {
           await ikInstance.deleteFile(school.principalSignatureUrl);
         } catch (deleteError) {
-          console.warn("Failed to delete old principal signature:", deleteError);
+          console.warn(
+            "Failed to delete old principal signature:",
+            deleteError
+          );
           // Continue with upload even if delete fails
         }
       }
@@ -461,7 +477,10 @@ export const uploadSignatures = async (
         try {
           await ikInstance.deleteFile(school.authoritySignatureUrl);
         } catch (deleteError) {
-          console.warn("Failed to delete old authority signature:", deleteError);
+          console.warn(
+            "Failed to delete old authority signature:",
+            deleteError
+          );
           // Continue with upload even if delete fails
         }
       }
@@ -497,6 +516,138 @@ export const uploadSignatures = async (
     console.error("UPLOAD SIGNATURES ERROR:", error);
     return res.status(500).json({
       message: error.message || "Failed to upload signatures",
+    });
+  }
+};
+
+/**
+ * Update school setup (general info, logo, template)
+ */
+export const schoolSetup = async (req: AuthRequest, res: Response) => {
+  const { schoolId } = req.params;
+  const {
+    name,
+    code,
+    adminEmail,
+    description,
+    address,
+    contactNumber,
+    affiliationNumber,
+    registrationNumber,
+    registrationDetails,
+  } = req.body;
+
+  // 🔐 RBAC: SUPER_ADMIN (uses schoolId from params) or SCHOOL_ADMIN (uses schoolId from token)
+  let schoolIdNum: number;
+
+  if (req.user?.role === "SUPER_ADMIN") {
+    schoolIdNum = Number(schoolId);
+    if (isNaN(schoolIdNum)) {
+      return res
+        .status(400)
+        .json({ message: "Valid schoolId is required for SUPER_ADMIN" });
+    }
+  } else if (req.user?.role === "SCHOOL_ADMIN") {
+    schoolIdNum = req.user.schoolId!;
+  } else {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  try {
+    // 🔍 Fetch school with ImageKit config
+    const school = await prisma.school.findUnique({
+      where: { id: schoolIdNum },
+      select: {
+        id: true,
+        imagekitPublicKey: true,
+        imagekitPrivateKey: true,
+        imagekitUrlEndpoint: true,
+        logoUrl: true,
+        templateUrl: true,
+      },
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    // 🚫 Block upload if ImageKit not configured (required for logo/template)
+    const files = (req.files as any) || {};
+    const logoFile = files.logo?.[0];
+    const templateFile = files.template?.[0];
+
+    if (
+      (logoFile || templateFile) &&
+      (!school.imagekitPublicKey ||
+        !school.imagekitPrivateKey ||
+        !school.imagekitUrlEndpoint)
+    ) {
+      return res.status(400).json({
+        message:
+          "Image upload is disabled. Please configure ImageKit credentials for this school.",
+      });
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (code !== undefined) updateData.code = code;
+    if (adminEmail !== undefined) updateData.adminEmail = adminEmail;
+    if (description !== undefined) updateData.description = description;
+    if (address !== undefined) updateData.address = address;
+    if (contactNumber !== undefined) updateData.contactNumber = contactNumber;
+    if (affiliationNumber !== undefined)
+      updateData.affiliationNumber = affiliationNumber;
+    if (registrationNumber !== undefined)
+      updateData.registrationNumber = registrationNumber;
+    if (registrationDetails !== undefined)
+      updateData.registrationDetails = registrationDetails;
+
+    if (logoFile || templateFile) {
+      const ikInstance = new ImageKit({
+        publicKey: school.imagekitPublicKey!,
+        privateKey: school.imagekitPrivateKey!,
+        urlEndpoint: school.imagekitUrlEndpoint!,
+      });
+
+      if (logoFile) {
+        // Upload logo
+        const logoUpload = await ikInstance.upload({
+          file: logoFile.buffer,
+          fileName: `logo_${Date.now()}.png`,
+          folder: `/logo`,
+          useUniqueFileName: true,
+        });
+        updateData.logoUrl = logoUpload.url;
+      }
+
+      if (templateFile) {
+        // Upload template
+        const templateUpload = await ikInstance.upload({
+          file: templateFile.buffer,
+          fileName: `template_${Date.now()}.png`,
+          folder: `/templates`,
+          useUniqueFileName: true,
+        });
+        updateData.templateUrl = templateUpload.url;
+      }
+    }
+
+    const updatedSchool = await prisma.school.update({
+      where: { id: schoolIdNum },
+      data: updateData,
+    });
+
+    return res.json({
+      message: "School setup updated successfully",
+      school: updatedSchool,
+    });
+  } catch (error: any) {
+    console.error("SCHOOL SETUP ERROR:", error);
+    if (error.code === "P2002") {
+      return res.status(409).json({ message: "School code already exists" });
+    }
+    return res.status(500).json({
+      message: error.message || "Failed to update school setup",
     });
   }
 };

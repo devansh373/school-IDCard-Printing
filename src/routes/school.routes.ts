@@ -1,5 +1,12 @@
 import { Router } from "express";
-import {  getSchools, getSchoolById, registerSchoolWithAdmin, updateImagekitCredentials, uploadSignatures } from "../controllers/school.controllers.js";
+import {
+  getSchools,
+  getSchoolById,
+  registerSchoolWithAdmin,
+  updateImagekitCredentials,
+  uploadSignatures,
+  schoolSetup,
+} from "../controllers/school.controllers.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
 import { authorizeRoles } from "../middlewares/authorize.middleware.js";
 import { uploadImage } from "../middlewares/upload-image.middleware.js";
@@ -7,8 +14,18 @@ import { uploadImage } from "../middlewares/upload-image.middleware.js";
 const router = Router();
 
 // router.post("/", authenticate,authorizeRoles("SUPER_ADMIN"), createSchool);
-router.get("/", authenticate,authorizeRoles("SUPER_ADMIN","VENDOR"), getSchools);
-router.get("/:schoolId", authenticate, authorizeRoles("SUPER_ADMIN","VENDOR"), getSchoolById);
+router.get(
+  "/",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN", "VENDOR"),
+  getSchools
+);
+router.get(
+  "/:schoolId",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN", "VENDOR"),
+  getSchoolById
+);
 router.post(
   "/register",
   authenticate,
@@ -28,8 +45,31 @@ router.post(
   authorizeRoles("SUPER_ADMIN", "SCHOOL_ADMIN"),
   uploadImage.fields([
     { name: "principal", maxCount: 1 },
-    { name: "authority", maxCount: 1 }
+    { name: "authority", maxCount: 1 },
   ]),
   uploadSignatures
 );
+
+router.put(
+  "/setup",
+  authenticate,
+  authorizeRoles("SCHOOL_ADMIN"),
+  uploadImage.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "template", maxCount: 1 },
+  ]),
+  schoolSetup
+);
+
+router.put(
+  "/:schoolId/setup",
+  authenticate,
+  authorizeRoles("SUPER_ADMIN"),
+  uploadImage.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "template", maxCount: 1 },
+  ]),
+  schoolSetup
+);
+
 export default router;

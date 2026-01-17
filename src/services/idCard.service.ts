@@ -60,6 +60,7 @@ export async function getOrCreateIdCardPreview(
       idCard: true,
       class: true,
       section: true,
+      school: true,
     },
   });
 
@@ -98,6 +99,11 @@ export async function getOrCreateIdCardPreview(
       mobile: student.mobileNo ?? "",
       bloodGroup: student.bloodGroup ?? "",
       photoUrl: student.photoUrl!,
+      rollNo: student.rollNo ?? "",
+      houseName: student.houseName ?? "",
+      schoolAddress: student.school.address ?? "",
+      schoolContact: student.school.contactNumber ?? "",
+      enrollmentNo: student.enrollmentNumber ?? "",
     },
     side
   );
