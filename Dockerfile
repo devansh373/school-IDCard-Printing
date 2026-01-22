@@ -3,7 +3,7 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies required for building native modules (like canvas)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
   python3 \
   make \
@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
   libjpeg-dev \
   libgif-dev \
   librsvg2-dev \
+  openssl \
+  ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
@@ -45,6 +47,8 @@ RUN apt-get update && apt-get install -y \
   libjpeg62-turbo \
   libgif7 \
   librsvg2-2 \
+  openssl \
+  ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -58,6 +62,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/templates ./src/templates
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 # Change ownership to non-root user
 RUN chown -R node:node /app
