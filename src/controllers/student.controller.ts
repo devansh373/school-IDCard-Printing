@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import type { AuthRequest } from "../middlewares/authenticate.middleware.js";
-import {prisma} from "../db.js";
-import  { PrintStatus } from "../generated/prisma/enums.js";
+import { prisma } from "../db.js";
+import { PrintStatus } from "../generated/prisma/enums.js";
 import ImageKit from "imagekit";
 import { getOrCreateIdCardPreview } from "../services/idCard.service.js";
 
@@ -63,9 +63,8 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
           ...(parsedPrintStatus && { printStatus: parsedPrintStatus }),
           ...(search && {
             OR: [
-              { firstName: { contains: search, mode: "insensitive" } } as any,
-              { lastName: { contains: search, mode: "insensitive" } } as any,
-              { enrollmentNumber: { contains: search } } as any,
+              { name: { contains: search, mode: "insensitive" } } as any,
+              { aparIdOrPan: { contains: search, mode: "insensitive" } } as any,
             ],
           }),
           ...(className && { class: { name: className } }),
@@ -86,9 +85,8 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
           ...(parsedPrintStatus && { printStatus: parsedPrintStatus }),
           ...(search && {
             OR: [
-              { firstName: { contains: search, mode: "insensitive" } } as any,
-              { lastName: { contains: search, mode: "insensitive" } } as any,
-              { enrollmentNumber: { contains: search } } as any,
+              { name: { contains: search, mode: "insensitive" } } as any,
+              { aparIdOrPan: { contains: search, mode: "insensitive" } } as any,
             ],
           }),
           ...(className && { class: { name: className } }),
@@ -130,8 +128,7 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
 
   // RBAC isolation
   if (
-    (req.user?.role === "SCHOOL_ADMIN" ||
-      req.user?.role === "TEACHER") &&
+    (req.user?.role === "SCHOOL_ADMIN" || req.user?.role === "TEACHER") &&
     student.schoolId !== req.user.schoolId
   ) {
     return res.status(403).json({ message: "Forbidden" });
@@ -146,36 +143,25 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
 export const createStudent = async (req: AuthRequest, res: Response) => {
   try {
     const {
-      enrollmentNumber,
+      aparIdOrPan,
       rollNo,
-      admissionNo,
-      firstName,
-      middleName,
-      lastName,
+      name,
       dateOfBirth,
-      fatherName,
-      motherName,
       currentAddress,
-      remarks,
-      mobileNo,
-      email,
+      guardianMobileNo,
       gender,
       religion,
-      aadhar,
-      aparId,
-      uniqueId,
-      pan,
       bloodGroup,
-      houseName,
-      classId,
-      sectionId,
+      className,
+      sectionName,
       schoolCode,
     } = req.body;
 
     // Validate required fields
-    if (!enrollmentNumber || !firstName || !classId || !sectionId) {
+    if (!aparIdOrPan || !name || !className || !sectionName) {
       return res.status(400).json({
-        message: "Required fields: enrollmentNumber, firstName, classId, sectionId",
+        message:
+          "Required fields: aparIdOrPan (APARID/PAN), name, className, sectionName",
       });
     }
 
@@ -200,26 +186,34 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    // Verify class and section exist in the school
-    const classExists = await prisma.class.findFirst({
-      where: { id: Number(classId), schoolId },
+    // Find or Create Class
+    let schoolClass = await prisma.class.findFirst({
+      where: { name: { equals: className, mode: "insensitive" }, schoolId },
     });
 
-    if (!classExists) {
-      return res.status(404).json({ message: "Class not found in this school" });
+    if (!schoolClass) {
+      schoolClass = await prisma.class.create({
+        data: { name: className, schoolId },
+      });
     }
 
-    const sectionExists = await prisma.section.findFirst({
-      where: { id: Number(sectionId), classId: Number(classId) },
+    // Find or Create Section
+    let section = await prisma.section.findFirst({
+      where: {
+        name: { equals: sectionName, mode: "insensitive" },
+        classId: schoolClass.id,
+      },
     });
 
-    if (!sectionExists) {
-      return res.status(404).json({ message: "Section not found in this class" });
+    if (!section) {
+      section = await prisma.section.create({
+        data: { name: sectionName, classId: schoolClass.id },
+      });
     }
 
-    // Check for duplicate enrollment number
+    // Check for duplicate APARID/PAN
     const existingStudent = await prisma.student.findUnique({
-      where: { enrollmentNumber },
+      where: { aparIdOrPan },
     });
 
     if (existingStudent) {
@@ -240,30 +234,18 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
     // Create student
     const student = await prisma.student.create({
       data: {
-        enrollmentNumber,
+        aparIdOrPan,
         rollNo: rollNo || null,
-        admissionNo: admissionNo || null,
-        firstName,
-        middleName: middleName || null,
-        lastName: lastName || null,
+        name,
         dateOfBirth: parsedDateOfBirth,
-        fatherName: fatherName || null,
-        motherName: motherName || null,
         currentAddress: currentAddress || null,
-        remarks: remarks || null,
-        mobileNo: mobileNo || null,
-        email: email || null,
+        guardianMobileNo: guardianMobileNo || null,
         gender: gender || null,
         religion: religion || null,
-        aadhar: aadhar || null,
-        aparId: aparId || null,
-        uniqueId: uniqueId || null,
-        pan: pan || null,
         bloodGroup: bloodGroup || null,
-        houseName: houseName || null,
         schoolId,
-        classId: Number(classId),
-        sectionId: Number(sectionId),
+        classId: schoolClass.id,
+        sectionId: section.id,
       },
       include: {
         class: true,
@@ -283,7 +265,6 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
 
 // export const uploadStudentPhoto = async (
 //   req: AuthRequest,
@@ -453,10 +434,7 @@ export const createStudent = async (req: AuthRequest, res: Response) => {
 //   }
 // };
 
-export const uploadStudentPhoto = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const uploadStudentPhoto = async (req: AuthRequest, res: Response) => {
   try {
     const studentId = Number(req.params.id);
 
@@ -507,8 +485,7 @@ export const uploadStudentPhoto = async (
     });
 
     const folder =
-      school.imagekitFolder ??
-      `/schools/${student.schoolId}/students`;
+      school.imagekitFolder ?? `/schools/${student.schoolId}/students`;
 
     const uploadResult = await imagekit.upload({
       file: req.file.buffer,
@@ -531,13 +508,13 @@ export const uploadStudentPhoto = async (
       .then(() => getOrCreateIdCardPreview(studentId, "BACK"))
       .then(() => {
         console.log(
-          `ID cards (Front & Back) generated for student ${studentId}`
+          `ID cards (Front & Back) generated for student ${studentId}`,
         );
       })
       .catch((err) => {
         console.error(
           `ID card generation failed for student ${studentId}`,
-          err
+          err,
         );
       });
 
@@ -554,22 +531,21 @@ export const uploadStudentPhoto = async (
   }
 };
 
-
 /**
  * Update student details
- * Updatable fields: name, enrollmentNumber, fatherName, phoneNumber, email, classId, sectionId, printStatus, photoStatus
+ * Updatable fields: name, aparIdOrPan, dateOfBirth, currentAddress, guardianMobileNo, gender, religion, bloodGroup, classId, sectionId, printStatus, photoStatus
  */
-export const updateStudent = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const updateStudent = async (req: AuthRequest, res: Response) => {
   const studentId = Number(req.params.id);
   const {
     name,
-    enrollmentNumber,
-    fatherName,
-    phoneNumber,
-    email,
+    aparIdOrPan,
+    dateOfBirth,
+    currentAddress,
+    guardianMobileNo,
+    gender,
+    religion,
+    bloodGroup,
     classId,
     sectionId,
     printStatus,
@@ -579,18 +555,20 @@ export const updateStudent = async (
   // Validate at least one field to update
   if (
     !name &&
-    !enrollmentNumber &&
-    !fatherName &&
-    !phoneNumber &&
-    !email &&
+    !aparIdOrPan &&
+    !dateOfBirth &&
+    !currentAddress &&
+    !guardianMobileNo &&
+    !gender &&
+    !religion &&
+    !bloodGroup &&
     !classId &&
     !sectionId &&
     !printStatus &&
     !photoStatus
   ) {
     return res.status(400).json({
-      message:
-        "At least one field (name, enrollmentNumber, fatherName, phoneNumber, email, classId, sectionId, printStatus, photoStatus) is required",
+      message: "At least one valid field is required for update",
     });
   }
 
@@ -612,7 +590,10 @@ export const updateStudent = async (
   }
 
   // Validate printStatus if provided
-  if (printStatus && !Object.values(PrintStatus).includes(printStatus as PrintStatus)) {
+  if (
+    printStatus &&
+    !Object.values(PrintStatus).includes(printStatus as PrintStatus)
+  ) {
     return res.status(400).json({
       message: `Invalid printStatus: ${printStatus}. Valid values: ${Object.values(PrintStatus).join(", ")}`,
     });
@@ -628,10 +609,14 @@ export const updateStudent = async (
   // Build update data - only include fields that are provided
   const updateData: any = {};
   if (name !== undefined) updateData.name = name;
-  if (enrollmentNumber !== undefined) updateData.enrollmentNumber = enrollmentNumber;
-  if (fatherName !== undefined) updateData.fatherName = fatherName;
-  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
-  if (email !== undefined) updateData.email = email;
+  if (aparIdOrPan !== undefined) updateData.aparIdOrPan = aparIdOrPan;
+  if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth;
+  if (currentAddress !== undefined) updateData.currentAddress = currentAddress;
+  if (guardianMobileNo !== undefined)
+    updateData.guardianMobileNo = guardianMobileNo;
+  if (gender !== undefined) updateData.gender = gender;
+  if (religion !== undefined) updateData.religion = religion;
+  if (bloodGroup !== undefined) updateData.bloodGroup = bloodGroup;
   if (classId !== undefined) updateData.classId = classId;
   if (sectionId !== undefined) updateData.sectionId = sectionId;
   if (printStatus !== undefined) updateData.printStatus = printStatus;
@@ -674,10 +659,7 @@ export const updateStudent = async (
 /**
  * Delete student
  */
-export const deleteStudent = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const deleteStudent = async (req: AuthRequest, res: Response) => {
   const studentId = Number(req.params.id);
 
   // Find the student

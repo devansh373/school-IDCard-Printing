@@ -1,34 +1,9 @@
-# FROM node:20-alpine
-
-# WORKDIR /app
-
-# # Install dependencies
-# COPY package*.json ./
-# RUN npm install
-
-# # Copy source code
-# COPY . .
-
-
-# # ✅ Generate Prisma client
-# RUN npx prisma generate
-
-# # 🔥 Build TypeScript
-# RUN npm run build
-
-# # Expose port
-# EXPOSE 5000
-
-# # Start compiled app
-# # CMD ["node", "dist/server.js"]
-# CMD sh -c "npx prisma migrate deploy && node --loader ts-node/esm src/scripts/seed-admin.ts && node dist/server.js"
-
-
-FROM node:20-slim
+# Stage 1: Build
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies required by canvas
+# Install system dependencies required for building native modules (like canvas)
 RUN apt-get update && apt-get install -y \
   python3 \
   make \
@@ -43,18 +18,61 @@ RUN apt-get update && apt-get install -y \
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install all dependencies (including devDependencies for build)
 RUN npm install
+
+# Copy Prisma schema first for client generation
+COPY prisma ./prisma/
+RUN npx prisma generate
 
 # Copy source code
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Build TypeScript
+# Build the TypeScript project
 RUN npm run build
 
-EXPOSE 5000
+# Prune dev dependencies
+RUN npm prune --production
 
-CMD sh -c "npx prisma migrate deploy && node --loader ts-node/esm src/scripts/seed-admin.ts && node dist/server.js"
+# Stage 2: Production
+FROM node:20-slim
+
+# Install tini for signal handling and runtime-only system dependencies for canvas
+RUN apt-get update && apt-get install -y \
+  tini \
+  libcairo2 \
+  libpango-1.0-0 \
+  libjpeg62-turbo \
+  libgif7 \
+  librsvg2-2 \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Set to production
+ENV NODE_ENV=production
+
+# Copy only what's needed from builder
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src/templates ./src/templates
+
+# Change ownership to non-root user
+RUN chown -R node:node /app
+
+# Use non-root user for security
+USER node
+
+# Expose the application port
+EXPOSE 5055
+
+# Use tini as entrypoint to handle signals correctly
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Start-up command: 
+# 1. Run migrations
+# 2. Seed admin (compiled version)
+# 3. Start server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/scripts/seed-admin.js && node dist/server.js"]

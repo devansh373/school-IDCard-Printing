@@ -375,34 +375,21 @@
 //   };
 // };
 
-
 import { prisma } from "../db.js";
 import type { User } from "../generated/prisma/client.js";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
 interface StudentInput {
-  enrollmentNumber: string;
+  aparIdOrPan: string;
   rollNo?: string;
-  admissionNo?: string;
-  firstName: string;
-  middleName?: string;
-  lastName?: string;
+  name: string;
   dateOfBirth?: string;
-  fatherName?: string;
-  motherName?: string;
   currentAddress?: string;
-  remarks?: string;
-  mobileNo?: string;
-  email?: string;
+  guardianMobileNo?: string;
   gender?: string;
   religion?: string;
-  aadhar?: string;
-  aparId?: string;
-  uniqueId?: string;
-  pan?: string;
   bloodGroup?: string;
-  houseName?: string;
   class: string;
   section: string;
 }
@@ -455,19 +442,17 @@ export const processStudentImport = async ({
   const classMap = new Map(classes.map((c) => [c.name.toLowerCase(), c]));
 
   /* ---------- Detect existing students ---------- */
-  const enrollmentNumbers = rows
-    .map((s) => s.enrollmentNumber)
-    .filter(Boolean);
+  const aparIdOrPans = rows.map((s) => s.aparIdOrPan).filter(Boolean);
 
   const existingStudents = await prisma.student.findMany({
     where: {
-      enrollmentNumber: { in: enrollmentNumbers },
+      aparIdOrPan: { in: aparIdOrPans },
       schoolId,
     },
-    select: { enrollmentNumber: true },
+    select: { aparIdOrPan: true },
   });
 
-  const existingSet = new Set(existingStudents.map((s) => s.enrollmentNumber));
+  const existingSet = new Set(existingStudents.map((s) => s.aparIdOrPan));
 
   /* ---------- Prepare results ---------- */
   const studentsToInsert: any[] = [];
@@ -479,12 +464,14 @@ export const processStudentImport = async ({
     const row = rows[i];
 
     try {
-      if (!row || !row.enrollmentNumber || !row.firstName || !row.class || !row.section) {
-        throw new Error("Missing required fields: enrollmentNumber, firstName, class, section");
+      if (!row || !row.aparIdOrPan || !row.name || !row.class || !row.section) {
+        throw new Error(
+          "Missing required fields: aparIdOrPan, name, class, section",
+        );
       }
 
       /* ----- Duplicate check ----- */
-      if (existingSet.has(row.enrollmentNumber)) {
+      if (existingSet.has(row.aparIdOrPan)) {
         duplicateCount++;
         continue;
       }
@@ -505,7 +492,7 @@ export const processStudentImport = async ({
 
       /* ----- Ensure section ----- */
       let section = cls.sections.find(
-        (s) => s.name.toLowerCase() === row.section.toLowerCase()
+        (s) => s.name.toLowerCase() === row.section.toLowerCase(),
       );
       if (!section) {
         section = await prisma.section.create({
@@ -528,27 +515,15 @@ export const processStudentImport = async ({
 
       /* ----- Prepare insert with all fields ----- */
       studentsToInsert.push({
-        enrollmentNumber: row.enrollmentNumber,
+        aparIdOrPan: row.aparIdOrPan,
         rollNo: row.rollNo || null,
-        admissionNo: row.admissionNo || null,
-        firstName: row.firstName,
-        middleName: row.middleName || null,
-        lastName: row.lastName || null,
+        name: row.name,
         dateOfBirth: dateOfBirth,
-        fatherName: row.fatherName || null,
-        motherName: row.motherName || null,
         currentAddress: row.currentAddress || null,
-        remarks: row.remarks || null,
-        mobileNo: row.mobileNo || null,
-        email: row.email || null,
+        guardianMobileNo: row.guardianMobileNo || null,
         gender: row.gender || null,
         religion: row.religion || null,
-        aadhar: row.aadhar || null,
-        aparId: row.aparId || null,
-        uniqueId: row.uniqueId || null,
-        pan: row.pan || null,
         bloodGroup: row.bloodGroup || null,
-        houseName: row.houseName || null,
         schoolId,
         classId: cls.id,
         sectionId: section.id,
@@ -591,31 +566,23 @@ const parseFile = (file: Express.Multer.File): StudentInput[] => {
     });
 
     if (parsed.errors && parsed.errors.length > 0) {
-      throw new Error(`CSV Parse Error: ${parsed.errors[0]?.message || "Unknown error"}`);
+      throw new Error(
+        `CSV Parse Error: ${parsed.errors[0]?.message || "Unknown error"}`,
+      );
     }
 
     return (parsed.data as unknown[]).map((row: any) => ({
-      enrollmentNumber: row.enrollmentNumber?.trim(),
-      rollNo: row.rollNo?.trim(),
-      admissionNo: row.admissionNo?.trim(),
-      firstName: row.firstName?.trim(),
-      middleName: row.middleName?.trim(),
-      lastName: row.lastName?.trim(),
-      dateOfBirth: row.dateOfBirth?.trim(),
-      fatherName: row.fatherName?.trim(),
-      motherName: row.motherName?.trim(),
-      currentAddress: row.currentAddress?.trim(),
-      remarks: row.remarks?.trim(),
-      mobileNo: row.mobileNo?.trim(),
-      email: row.email?.trim(),
+      aparIdOrPan: (row.aparIdOrPan || row["APARID/PAN NUMBER"])?.trim(),
+      rollNo: (row.rollNo || row["Roll No"])?.trim(),
+      name: (row.name || row["Student Name"])?.trim(),
+      dateOfBirth: (row.dateOfBirth || row["Date of Birth"])?.trim(),
+      currentAddress: (row.currentAddress || row["Current Address"])?.trim(),
+      guardianMobileNo: (
+        row.guardianMobileNo || row["Parent's/Guardian Mobile No"]
+      )?.trim(),
       gender: row.gender?.trim(),
       religion: row.religion?.trim(),
-      aadhar: row.aadhar?.trim(),
-      aparId: row.aparId?.trim(),
-      uniqueId: row.uniqueId?.trim(),
-      pan: row.pan?.trim(),
-      bloodGroup: row.bloodGroup?.trim(),
-      houseName: row.houseName?.trim(),
+      bloodGroup: (row.bloodGroup || row["Blood Group"])?.trim(),
       class: row.class?.trim(),
       section: row.section?.trim(),
     }));
@@ -637,31 +604,29 @@ const parseFile = (file: Express.Multer.File): StudentInput[] => {
     const rows = XLSX.utils.sheet_to_json(sheet) as Record<string, any>[];
 
     return rows.map((row) => ({
-      enrollmentNumber: row.enrollmentNumber?.toString().trim(),
-      rollNo: row.rollNo?.toString().trim(),
-      admissionNo: row.admissionNo?.toString().trim(),
-      firstName: row.firstName?.toString().trim(),
-      middleName: row.middleName?.toString().trim(),
-      lastName: row.lastName?.toString().trim(),
-      dateOfBirth: row.dateOfBirth?.toString().trim(),
-      fatherName: row.fatherName?.toString().trim(),
-      motherName: row.motherName?.toString().trim(),
-      currentAddress: row.currentAddress?.toString().trim(),
-      remarks: row.remarks?.toString().trim(),
-      mobileNo: row.mobileNo?.toString().trim(),
-      email: row.email?.toString().trim(),
+      aparIdOrPan: (row.aparIdOrPan || row["APARID/PAN NUMBER"])
+        ?.toString()
+        .trim(),
+      rollNo: (row.rollNo || row["Roll No"])?.toString().trim(),
+      name: (row.name || row["Student Name"])?.toString().trim(),
+      dateOfBirth: (row.dateOfBirth || row["Date of Birth"])?.toString().trim(),
+      currentAddress: (row.currentAddress || row["Current Address"])
+        ?.toString()
+        .trim(),
+      guardianMobileNo: (
+        row.guardianMobileNo || row["Parent's/Guardian Mobile No"]
+      )
+        ?.toString()
+        .trim(),
       gender: row.gender?.toString().trim(),
       religion: row.religion?.toString().trim(),
-      aadhar: row.aadhar?.toString().trim(),
-      aparId: row.aparId?.toString().trim(),
-      uniqueId: row.uniqueId?.toString().trim(),
-      pan: row.pan?.toString().trim(),
-      bloodGroup: row.bloodGroup?.toString().trim(),
-      houseName: row.houseName?.toString().trim(),
+      bloodGroup: (row.bloodGroup || row["Blood Group"])?.toString().trim(),
       class: row.class?.toString().trim(),
       section: row.section?.toString().trim(),
     }));
   }
 
-  throw new Error("Unsupported file type. Only CSV and Excel (.xlsx, .xls) are supported");
+  throw new Error(
+    "Unsupported file type. Only CSV and Excel (.xlsx, .xls) are supported",
+  );
 };

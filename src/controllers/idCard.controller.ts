@@ -255,9 +255,8 @@ export async function getIdCardPreviews(req: any, res: any) {
   // 🔹 search
   if (search) {
     where.OR = [
-      { firstName: { contains: search, mode: "insensitive" } },
-      { lastName: { contains: search, mode: "insensitive" } },
-      { enrollmentNumber: { contains: search, mode: "insensitive" } },
+      { name: { contains: search, mode: "insensitive" } },
+      { aparIdOrPan: { contains: search, mode: "insensitive" } },
       { rollNo: { contains: search, mode: "insensitive" } },
     ];
   }
@@ -285,7 +284,7 @@ export async function getIdCardPreviews(req: any, res: any) {
       where,
       skip,
       take,
-      orderBy: { firstName: "asc" },
+      orderBy: { name: "asc" },
       include: {
         class: true,
         section: true,
@@ -299,8 +298,8 @@ export async function getIdCardPreviews(req: any, res: any) {
    */
   const data = students.map((s) => ({
     studentId: s.id,
-    name: `${s.firstName} ${s.lastName ?? ""}`.trim(),
-    enrollmentNumber: s.enrollmentNumber,
+    name: s.name,
+    aparIdOrPan: s.aparIdOrPan,
     rollNo: s.rollNo,
     class: s.class.name,
     section: s.section.name,

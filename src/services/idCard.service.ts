@@ -51,7 +51,7 @@ import { formatDOB } from "../utils/formatDob.js";
 
 export async function getOrCreateIdCardPreview(
   studentId: number,
-  side: CardSide
+  side: CardSide,
 ) {
   // 1️⃣ Fetch student + relations
   const student = await prisma.student.findUnique({
@@ -90,22 +90,24 @@ export async function getOrCreateIdCardPreview(
   // 4️⃣ Render canvas (NEW renderer)
   const canvas = await renderIdCardCanvas(
     {
-      name: `${student.firstName} ${student.lastName ?? ""}`.trim(),
+      name: student.name,
       className: student.class.name,
       sectionName: student.section.name,
-      fatherName: student.fatherName ?? "",
       dob: `${formatDOB(student.dateOfBirth) ?? ""}`,
       address: student.currentAddress ?? "",
-      mobile: student.mobileNo ?? "",
+      guardianMobile: student.guardianMobileNo ?? "",
       bloodGroup: student.bloodGroup ?? "",
       photoUrl: student.photoUrl!,
       rollNo: student.rollNo ?? "",
-      houseName: student.houseName ?? "",
       schoolAddress: student.school.address ?? "",
       schoolContact: student.school.contactNumber ?? "",
-      enrollmentNo: student.enrollmentNumber ?? "",
+      aparIdOrPan: student.aparIdOrPan ?? "",
+      logoUrl: student.school.logoUrl ?? undefined,
+      templateUrl: student.school.templateUrl ?? undefined,
+      authoritySignatureUrl: student.school.authoritySignatureUrl ?? undefined,
+      schoolName: student.school.name,
     },
-    side
+    side,
   );
 
   // 5️⃣ Convert to PNG

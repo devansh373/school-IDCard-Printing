@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: school-id-postgres-dev
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: school_id_dev
+    ports:
+      - "5439:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: school-id-backend-dev
+    restart: always
+    ports:
+      - "5055:5055"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres-dev:5432/school_id_dev
+      - NODE_ENV=development
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules # Anonymous volume to prevent host node_modules from overwriting container's
+
+volumes:
+  postgres_data_dev:
