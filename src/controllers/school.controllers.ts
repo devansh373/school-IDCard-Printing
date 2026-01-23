@@ -52,7 +52,8 @@ export const getSchools = async (req: Request, res: Response) => {
           authoritySignatureUrl: true,
           principalSignatureUrl: true,
           logoUrl: true,
-          templateUrl: true,
+          templateFrontUrl: true,
+          templateBackUrl: true,
           imagekitPublicKey: true,
           imagekitPrivateKey: true,
           imagekitUrlEndpoint: true,
@@ -118,7 +119,8 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
         authoritySignatureUrl: true,
         principalSignatureUrl: true,
         logoUrl: true,
-        templateUrl: true,
+        templateFrontUrl: true,
+        templateBackUrl: true,
         imagekitPublicKey: true,
         imagekitPrivateKey: true,
         imagekitUrlEndpoint: true,
@@ -180,7 +182,8 @@ export const getSchoolProfile = async (req: AuthRequest, res: Response) => {
         authoritySignatureUrl: true,
         principalSignatureUrl: true,
         logoUrl: true,
-        templateUrl: true,
+        templateFrontUrl: true,
+        templateBackUrl: true,
         imagekitPublicKey: true,
         imagekitPrivateKey: true,
         imagekitUrlEndpoint: true,
@@ -597,7 +600,8 @@ export const schoolSetup = async (req: AuthRequest, res: Response) => {
         imagekitPrivateKey: true,
         imagekitUrlEndpoint: true,
         logoUrl: true,
-        templateUrl: true,
+        templateFrontUrl: true,
+        templateBackUrl: true,
       },
     });
 
@@ -605,13 +609,14 @@ export const schoolSetup = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "School not found" });
     }
 
-    // 🚫 Block upload if ImageKit not configured (required for logo/template)
+    // 🚫 Block upload if ImageKit not configured (required for logo/templates)
     const files = (req.files as any) || {};
     const logoFile = files.logo?.[0];
-    const templateFile = files.template?.[0];
+    const templateFrontFile = files.templateFront?.[0];
+    const templateBackFile = files.templateBack?.[0];
 
     if (
-      (logoFile || templateFile) &&
+      (logoFile || templateFrontFile || templateBackFile) &&
       (!school.imagekitPublicKey ||
         !school.imagekitPrivateKey ||
         !school.imagekitUrlEndpoint)
@@ -636,7 +641,7 @@ export const schoolSetup = async (req: AuthRequest, res: Response) => {
     if (registrationDetails !== undefined)
       updateData.registrationDetails = registrationDetails;
 
-    if (logoFile || templateFile) {
+    if (logoFile || templateFrontFile || templateBackFile) {
       const ikInstance = new ImageKit({
         publicKey: school.imagekitPublicKey!,
         privateKey: school.imagekitPrivateKey!,
@@ -654,15 +659,26 @@ export const schoolSetup = async (req: AuthRequest, res: Response) => {
         updateData.logoUrl = logoUpload.url;
       }
 
-      if (templateFile) {
-        // Upload template
-        const templateUpload = await ikInstance.upload({
-          file: templateFile.buffer,
-          fileName: `template_${Date.now()}.png`,
+      if (templateFrontFile) {
+        // Upload front template
+        const templateFrontUpload = await ikInstance.upload({
+          file: templateFrontFile.buffer,
+          fileName: `template_front_${Date.now()}.png`,
           folder: `/templates`,
           useUniqueFileName: true,
         });
-        updateData.templateUrl = templateUpload.url;
+        updateData.templateFrontUrl = templateFrontUpload.url;
+      }
+
+      if (templateBackFile) {
+        // Upload back template
+        const templateBackUpload = await ikInstance.upload({
+          file: templateBackFile.buffer,
+          fileName: `template_back_${Date.now()}.png`,
+          folder: `/templates`,
+          useUniqueFileName: true,
+        });
+        updateData.templateBackUrl = templateBackUpload.url;
       }
     }
 

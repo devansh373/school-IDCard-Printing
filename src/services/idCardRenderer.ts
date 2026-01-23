@@ -16,7 +16,8 @@ export interface StudentCardData {
   schoolContact?: string | undefined;
   aparIdOrPan?: string | undefined;
   logoUrl?: string | undefined;
-  templateUrl?: string | undefined;
+  templateFrontUrl?: string | undefined;
+  templateBackUrl?: string | undefined;
   authoritySignatureUrl?: string | undefined;
   schoolName?: string | undefined;
 }
@@ -88,19 +89,19 @@ async function renderFront(
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   // Background Template
-  if (data.templateUrl) {
+  if (data.templateFrontUrl) {
     try {
-      const bg = await loadImage(data.templateUrl);
+      const bg = await loadImage(data.templateFrontUrl);
       ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
     } catch (e) {
       ctx.fillStyle = "#f0f0f0";
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
     }
-    console.log("if part");
+    console.log("front if part");
   } else {
     // Fallback to local default if no template provided
     try {
-      console.log("else part");
+      console.log("front else part");
       const bg = await loadImage("src/templates/id-card-bg.jpg");
       ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
     } catch (e) {
@@ -200,9 +201,9 @@ async function renderBack(
   HEIGHT: number,
 ) {
   // Background Template for Back Side
-  if (data.templateUrl) {
+  if (data.templateBackUrl) {
     try {
-      const bg = await loadImage(data.templateUrl);
+      const bg = await loadImage(data.templateBackUrl);
       ctx.drawImage(bg, 0, 0, WIDTH, HEIGHT);
     } catch (e) {
       ctx.fillStyle = "#f9f9f9";

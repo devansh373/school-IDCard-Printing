@@ -19,7 +19,7 @@ router.get(
   "/",
   authenticate,
   authorizeRoles("SUPER_ADMIN", "VENDOR"),
-  getSchools
+  getSchools,
 );
 
 // Get current user's school profile
@@ -27,7 +27,7 @@ router.get(
   "/profile",
   authenticate,
   authorizeRoles("SCHOOL_ADMIN"),
-  getSchoolProfile
+  getSchoolProfile,
 );
 
 // Get specific school by ID
@@ -35,7 +35,7 @@ router.get(
   "/:schoolId",
   authenticate,
   authorizeRoles("SUPER_ADMIN", "VENDOR", "SCHOOL_ADMIN"),
-  getSchoolById
+  getSchoolById,
 );
 
 // Admin: register new school
@@ -43,7 +43,7 @@ router.post(
   "/register",
   authenticate,
   authorizeRoles("SUPER_ADMIN"),
-  registerSchoolWithAdmin
+  registerSchoolWithAdmin,
 );
 
 // Admin: update ImageKit credentials
@@ -51,7 +51,7 @@ router.put(
   "/:schoolId/imagekit",
   authenticate,
   authorizeRoles("SUPER_ADMIN"),
-  updateImagekitCredentials
+  updateImagekitCredentials,
 );
 
 // School Admin/Super Admin: upload signatures
@@ -63,7 +63,7 @@ router.post(
     { name: "principal", maxCount: 1 },
     { name: "authority", maxCount: 1 },
   ]),
-  uploadSignatures
+  uploadSignatures,
 );
 
 // School Admin: setup school
@@ -73,9 +73,10 @@ router.put(
   authorizeRoles("SCHOOL_ADMIN"),
   uploadImage.fields([
     { name: "logo", maxCount: 1 },
-    { name: "template", maxCount: 1 },
+    { name: "templateFront", maxCount: 1 },
+    { name: "templateBack", maxCount: 1 },
   ]),
-  schoolSetup
+  schoolSetup,
 );
 
 // Super Admin: setup specific school
@@ -85,9 +86,10 @@ router.put(
   authorizeRoles("SUPER_ADMIN"),
   uploadImage.fields([
     { name: "logo", maxCount: 1 },
-    { name: "template", maxCount: 1 },
+    { name: "templateFront", maxCount: 1 },
+    { name: "templateBack", maxCount: 1 },
   ]),
-  schoolSetup
+  schoolSetup,
 );
 
 export default router;

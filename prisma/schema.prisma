@@ -29,7 +29,8 @@ model School {
   registrationDetails   String?
   authoritySignatureUrl String?
   principalSignatureUrl String?
-  templateUrl           String?
+  templateFrontUrl      String?
+  templateBackUrl       String?
 
   // 🔐 ImageKit (per school)
   imagekitPublicKey   String?
