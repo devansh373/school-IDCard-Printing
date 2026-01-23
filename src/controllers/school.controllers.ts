@@ -217,7 +217,7 @@ export const getSchoolProfile = async (req: AuthRequest, res: Response) => {
 
 export const registerSchoolWithAdmin = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) => {
   const {
     name,
@@ -268,7 +268,7 @@ export const registerSchoolWithAdmin = async (
     }
 
     const { school, tempPassword } = await prisma.$transaction(
-      async (tx): Promise<{ school: School; tempPassword: string }> => {
+      async (tx: any): Promise<{ school: School; tempPassword: string }> => {
         const school = await tx.school.create({
           data: {
             name,
@@ -293,7 +293,7 @@ export const registerSchoolWithAdmin = async (
         });
 
         return { school, tempPassword };
-      }
+      },
     );
 
     // 📧 Email AFTER transaction
@@ -320,7 +320,7 @@ export const registerSchoolWithAdmin = async (
  */
 export const updateImagekitCredentials = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) => {
   const { schoolId } = req.params;
   const {
@@ -489,7 +489,7 @@ export const uploadSignatures = async (req: AuthRequest, res: Response) => {
         } catch (deleteError) {
           console.warn(
             "Failed to delete old principal signature:",
-            deleteError
+            deleteError,
           );
           // Continue with upload even if delete fails
         }
@@ -513,7 +513,7 @@ export const uploadSignatures = async (req: AuthRequest, res: Response) => {
         } catch (deleteError) {
           console.warn(
             "Failed to delete old authority signature:",
-            deleteError
+            deleteError,
           );
           // Continue with upload even if delete fails
         }

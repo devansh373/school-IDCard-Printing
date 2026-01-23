@@ -61,11 +61,11 @@ RUN npm install
 COPY prisma ./prisma/
 COPY . .
 
-# 1️⃣ Build first
-RUN npm run build
-
-# 2️⃣ Generate Prisma client AFTER build
+# 1️⃣ Generate Prisma client first so TypeScript can find the types
 RUN npx prisma generate
+
+# 2️⃣ Build the project
+RUN npm run build
 
 # 3️⃣ Prune dev deps
 RUN npm prune --production

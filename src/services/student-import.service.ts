@@ -439,7 +439,7 @@ export const processStudentImport = async ({
     include: { sections: true },
   });
 
-  const classMap = new Map(classes.map((c) => [c.name.toLowerCase(), c]));
+  const classMap = new Map(classes.map((c: any) => [c.name.toLowerCase(), c]));
 
   /* ---------- Detect existing students ---------- */
   const aparIdOrPans = rows.map((s) => s.aparIdOrPan).filter(Boolean);
@@ -452,7 +452,7 @@ export const processStudentImport = async ({
     select: { aparIdOrPan: true },
   });
 
-  const existingSet = new Set(existingStudents.map((s) => s.aparIdOrPan));
+  const existingSet = new Set(existingStudents.map((s: any) => s.aparIdOrPan));
 
   /* ---------- Prepare results ---------- */
   const studentsToInsert: any[] = [];
@@ -491,17 +491,17 @@ export const processStudentImport = async ({
       }
 
       /* ----- Ensure section ----- */
-      let section = cls.sections.find(
-        (s) => s.name.toLowerCase() === row.section.toLowerCase(),
+      let section = (cls as any).sections.find(
+        (s: any) => s.name.toLowerCase() === row.section.toLowerCase(),
       );
       if (!section) {
         section = await prisma.section.create({
           data: {
             name: row.section,
-            classId: cls.id,
+            classId: (cls as any).id,
           },
         });
-        cls.sections.push(section);
+        (cls as any).sections.push(section);
       }
 
       /* ----- Parse date of birth ----- */
@@ -525,7 +525,7 @@ export const processStudentImport = async ({
         religion: row.religion || null,
         bloodGroup: row.bloodGroup || null,
         schoolId,
-        classId: cls.id,
+        classId: (cls as any).id,
         sectionId: section.id,
       });
     } catch (err: any) {

@@ -6,10 +6,7 @@ import { generateTempPassword } from "../utils/password.js";
 import { sendSchoolAdminCredentials } from "../utils/mailer.js";
 import { UserRole, VendorStatus } from "../generated/prisma/enums.js";
 
-export const registerVendor = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const registerVendor = async (req: AuthRequest, res: Response) => {
   const { vendorName, email, phoneNumber, location } = req.body as {
     vendorName?: string;
     email?: string;
@@ -85,7 +82,13 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const { vendorStatus, isActive, search, limit = "10", page = "1" } = req.query as Record<string, string>;
+  const {
+    vendorStatus,
+    isActive,
+    search,
+    limit = "10",
+    page = "1",
+  } = req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
@@ -98,7 +101,9 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
 
     if (vendorStatus) {
       if (!Object.values(VendorStatus).includes(vendorStatus as any)) {
-        return res.status(400).json({ message: `Invalid vendorStatus: ${vendorStatus}` });
+        return res
+          .status(400)
+          .json({ message: `Invalid vendorStatus: ${vendorStatus}` });
       }
       where.vendorStatus = vendorStatus;
     }
@@ -152,10 +157,7 @@ export const getAllVendors = async (req: AuthRequest, res: Response) => {
 /**
  * Assign a school to a vendor
  */
-export const assignSchoolToVendor = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const assignSchoolToVendor = async (req: AuthRequest, res: Response) => {
   const { vendorId } = req.params;
   const { schoolId } = req.body as { schoolId?: number };
 
@@ -237,7 +239,7 @@ export const assignSchoolToVendor = async (
  */
 export const removeSchoolFromVendor = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) => {
   const { vendorId, schoolId } = req.params;
 
@@ -276,7 +278,9 @@ export const removeSchoolFromVendor = async (
     const updatedVendor = await prisma.user.update({
       where: { id: Number(vendorId) },
       data: {
-        schoolIds: vendor.schoolIds.filter((id) => id !== Number(schoolId)),
+        schoolIds: vendor.schoolIds.filter(
+          (id: any) => id !== Number(schoolId),
+        ),
       },
     });
 
@@ -300,26 +304,22 @@ export const removeSchoolFromVendor = async (
 /**
  * Get all schools assigned to a vendor
  */
-export const getVendorSchools = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const getVendorSchools = async (req: AuthRequest, res: Response) => {
   let { vendorId } = req.params;
   const { limit = "10", page = "1" } = req.query as Record<string, string>;
 
   // If vendorId not provided, use logged-in vendor's ID
   if (!vendorId) {
     if (req.user?.role !== "VENDOR") {
-      return res.status(400).json({ message: "vendorId is required for non-vendor users" });
+      return res
+        .status(400)
+        .json({ message: "vendorId is required for non-vendor users" });
     }
     vendorId = String(req.user.id);
   }
 
   // RBAC: SUPER_ADMIN or the vendor themselves
-  if (
-    req.user?.role !== "SUPER_ADMIN" &&
-    req.user?.id !== Number(vendorId)
-  ) {
+  if (req.user?.role !== "SUPER_ADMIN" && req.user?.id !== Number(vendorId)) {
     return res.status(403).json({ message: "Forbidden" });
   }
 
@@ -335,7 +335,13 @@ export const getVendorSchools = async (
     // Verify vendor exists
     const vendor = await prisma.user.findUnique({
       where: { id: Number(vendorId) },
-      select: { id: true, role: true, schoolIds: true, email: true, vendorName: true },
+      select: {
+        id: true,
+        role: true,
+        schoolIds: true,
+        email: true,
+        vendorName: true,
+      },
     });
 
     if (!vendor) {

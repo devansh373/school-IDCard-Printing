@@ -296,7 +296,7 @@ export async function getIdCardPreviews(req: any, res: any) {
   /**
    * 🎯 RESPONSE
    */
-  const data = students.map((s) => ({
+  const data = students.map((s: any) => ({
     studentId: s.id,
     name: s.name,
     aparIdOrPan: s.aparIdOrPan,
