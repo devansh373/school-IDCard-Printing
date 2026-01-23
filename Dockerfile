@@ -1,9 +1,47 @@
+# # Stage 1: Build
+# FROM node:20-slim AS builder
+
+# WORKDIR /app
+
+# # Install system dependencies
+# RUN apt-get update && apt-get install -y \
+#   python3 \
+#   make \
+#   g++ \
+#   libcairo2-dev \
+#   libpango1.0-dev \
+#   libjpeg-dev \
+#   libgif-dev \
+#   librsvg2-dev \
+#   openssl \
+#   ca-certificates \
+#   && rm -rf /var/lib/apt/lists/*
+
+# # Copy package files
+# COPY package*.json ./
+
+# # Install all dependencies (including devDependencies for build)
+# RUN npm install
+
+# # Copy Prisma schema first for client generation
+# COPY prisma ./prisma/
+
+# # Copy source code
+# COPY . .
+
+# # Build the TypeScript project
+# RUN npm run build
+
+# RUN npx prisma generate
+# # Prune dev dependencies
+# RUN npm prune --production
+
+
 # Stage 1: Build
 FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
   python3 \
   make \
@@ -17,24 +55,22 @@ RUN apt-get update && apt-get install -y \
   ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
 COPY package*.json ./
-
-# Install all dependencies (including devDependencies for build)
 RUN npm install
 
-# Copy Prisma schema first for client generation
 COPY prisma ./prisma/
-RUN npx prisma generate
-
-# Copy source code
 COPY . .
 
-# Build the TypeScript project
+# 1️⃣ Build first
 RUN npm run build
 
-# Prune dev dependencies
+# 2️⃣ Generate Prisma client AFTER build
+RUN npx prisma generate
+
+# 3️⃣ Prune dev deps
 RUN npm prune --production
+
+
 
 # Stage 2: Production
 FROM node:20-slim
