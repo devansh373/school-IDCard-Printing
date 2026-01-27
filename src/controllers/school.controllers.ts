@@ -55,7 +55,7 @@ export const getSchools = async (req: Request, res: Response) => {
           templateFrontUrl: true,
           templateBackUrl: true,
           imagekitPublicKey: true,
-          imagekitPrivateKey: true,
+          // imagekitPrivateKey: NEVER expose in API responses
           imagekitUrlEndpoint: true,
           imagekitFolder: true,
           createdAt: true,
@@ -122,7 +122,7 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
         templateFrontUrl: true,
         templateBackUrl: true,
         imagekitPublicKey: true,
-        imagekitPrivateKey: true,
+        // imagekitPrivateKey: NEVER expose in API responses
         imagekitUrlEndpoint: true,
         imagekitFolder: true,
         createdAt: true,
@@ -185,7 +185,7 @@ export const getSchoolProfile = async (req: AuthRequest, res: Response) => {
         templateFrontUrl: true,
         templateBackUrl: true,
         imagekitPublicKey: true,
-        imagekitPrivateKey: true,
+        // imagekitPrivateKey: NEVER expose in API responses
         imagekitUrlEndpoint: true,
         imagekitFolder: true,
         createdAt: true,

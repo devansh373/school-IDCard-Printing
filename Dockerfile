@@ -98,7 +98,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/templates ./src/templates
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 # Change ownership to non-root user
 RUN chown -R node:node /app
@@ -106,14 +105,14 @@ RUN chown -R node:node /app
 # Use non-root user for security
 USER node
 
-# Expose the application port
-EXPOSE 5055
+# Expose the application port (matching the PORT in .env or default 5000)
+EXPOSE 5000
 
 # Use tini as entrypoint to handle signals correctly
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Start-up command: 
 # 1. Run migrations
-# 2. Seed admin (compiled version)
-# 3. Start server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/scripts/seed-admin.js && node dist/server.js"]
+# 2. Start server
+# Note: Seed script should be run manually in production with proper credentials
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

@@ -39,12 +39,12 @@ export const login = async (req: Request, res: Response) => {
 
   res.cookie("access_token", token, {
     httpOnly: true, // ✅ prevents JS access
-    secure: process.env.NODE_ENVIRONMENT === "local" ? false : true, // ⚠️ true in production (HTTPS)
+    secure: process.env.NODE_ENV !== "development", // ✅ true in production (HTTPS)
     sameSite: "strict", // ✅ CSRF protection
     maxAge: 24 * 60 * 60 * 1000, // 1 day
 
   });
- return res.json({
+  return res.json({
     message: "Login successful",
     user: {
       id: user.id,
@@ -52,7 +52,7 @@ export const login = async (req: Request, res: Response) => {
       mustChangePassword: user.mustChangePassword,
     },
   });
-//   return res.json({ message: "Login successful" });
+  //   return res.json({ message: "Login successful" });
 };
 
 export const logout = (_req: Request, res: Response) => {
@@ -75,6 +75,23 @@ export const changePassword = async (
   if (!currentPassword || !newPassword) {
     return res.status(400).json({
       message: "Current and new password are required",
+    });
+  }
+
+  // Validate password strength
+  const { validatePasswordStrength, checkCommonPasswords } = await import("../utils/password-validation.js");
+
+  const validation = validatePasswordStrength(newPassword);
+  if (!validation.isValid) {
+    return res.status(400).json({
+      message: "Password does not meet security requirements",
+      errors: validation.errors,
+    });
+  }
+
+  if (checkCommonPasswords(newPassword)) {
+    return res.status(400).json({
+      message: "Password is too common. Please choose a more secure password.",
     });
   }
 
