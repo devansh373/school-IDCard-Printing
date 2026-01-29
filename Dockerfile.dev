@@ -28,7 +28,7 @@ RUN npx prisma generate
 # but we add it as a fallback
 COPY . .
 
-EXPOSE 5055
+EXPOSE 5000
 
 # Run in development mode with hot-reloading
 CMD ["npm", "run", "dev"]

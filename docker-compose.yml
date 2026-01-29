@@ -6,12 +6,11 @@ services:
     container_name: school-id-postgres
     restart: always
     environment:
-      # Use environment variables for credentials in production
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-school_id}
     ports:
-      - "5438:5432"
+      - "${HOST_POSTGRES_PORT:-5438}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,14 +29,33 @@ services:
         max-file: "3"
 
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: school-id-backend
     restart: unless-stopped
     stop_grace_period: 30s
     ports:
-      - "5050:5000"  # Map host port 5050 to container port 5000
-    env_file:
-      - .env
+      - "${HOST_BACKEND_PORT:-5050}:5000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-school_id}
+      # Server
+      PORT: ${PORT:-5000}
+      NODE_ENV: ${NODE_ENV:-development}
+      # Authentication
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      # Admin Credentials
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vendor.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-your-secure-admin-password-here}
+      # ImageKit
+      IMAGEKIT_PUBLIC_KEY: ${IMAGEKIT_PUBLIC_KEY:-}
+      IMAGEKIT_PRIVATE_KEY: ${IMAGEKIT_PRIVATE_KEY:-}
+      IMAGEKIT_URL_ENDPOINT: ${IMAGEKIT_URL_ENDPOINT:-}
+      # Email
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # CORS
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
     depends_on:
       postgres:
         condition: service_healthy
